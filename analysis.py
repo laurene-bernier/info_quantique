@@ -18,10 +18,10 @@ from utils import *
 from scipy.special import erf
 from scipy.signal import find_peaks
 from scipy.linalg import eigh_tridiagonal
-import ctypes
+#import ctypes
 
 # load utils_backup c function
-lib_utils_c = ctypes.CDLL('./utils.dll')
+#lib_utils_c = ctypes.CDLL('./utils.dll')
 
 # Functions
 

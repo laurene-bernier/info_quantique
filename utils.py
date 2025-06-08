@@ -13,10 +13,14 @@ from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 import scipy.constants as sc
 import ctypes
+import os
 # Constants
 
 # load utils_backup c function
-lib_utils_c = ctypes.CDLL('./utils.dll')
+script_dir = os.path.dirname(os.path.abspath(__file__))
+dll_path = os.path.join(script_dir, 'utils.dll')
+lib_utils_c = ctypes.CDLL(dll_path)
+#lib_utils_c = ctypes.CDLL('./utils.dll')
 
 # Définir les types de structures C (basés sur votre code)
 class State(ctypes.Structure):

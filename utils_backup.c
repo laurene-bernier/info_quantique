@@ -319,7 +319,8 @@ int hopping_term_sign_factor(State* state_i, int i, int k, char spin){
 
 // Main function :
 StateList* get_hubbard_states(int N, int dim) { // get_hubbard_states(N, dim)
-    CombinationList *combs = combinations_iterative(dim, N); // dim = nombre de particule & N = nombre de site
+    CombinationList *combs = malloc(sizeof(CombinationList));
+    combs = combinations_iterative(dim, N); // dim = nombre de particule & N = nombre de site
     //if (!combs) return NULL;
     
     StateList *state_list = malloc(sizeof(StateList));
