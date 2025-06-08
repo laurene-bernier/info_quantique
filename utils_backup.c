@@ -85,22 +85,24 @@ HamiltonianMatrix* initialize_matrix_with_zeros(HamiltonianMatrix* H, int dim){ 
 }
 
 bool state_equal(State* state1, State* state2){ // test if state are equal in size and in content
+    bool isequal;
     if(!state1 || !state2) return false;
     if(state1->size == state2->size) {
         for(int i = 0; i < state1->size; i++) {
             if (state1->occupancy[i] != state2->occupancy[i]) {
-                return false;
+                isequal = false;
             }
         }
-        return true;
+        isequal = true;
     }
+    return isequal;
 }
 
 
 State* abs_state(State* state_not_in_absolute_value){ // transform each value of state in an absolute value
     State* state_in_absolute_value = malloc(sizeof(State));
     state_in_absolute_value->size = state_not_in_absolute_value->size;
-    state_in_absolute_value->occupancy = malloc(state_not_in_absolute_value->size * sizeof(int)); // need to allocate memory to occupancy
+    state_in_absolute_value->occupancy = malloc(sizeof(int)); // need to allocate memory to occupancy // state_not_in_absolute_value->size * ?
     for(int i = 0; i < state_not_in_absolute_value->size; i++){
         state_in_absolute_value->occupancy[i] = abs(state_not_in_absolute_value->occupancy[i]);
     }
@@ -108,6 +110,7 @@ State* abs_state(State* state_not_in_absolute_value){ // transform each value of
 }
 
 bool any(State* state){
+    //state_in_absolute_value->occupancy = malloc(state_not_in_absolute_value->size * sizeof(int));
     if (!state || !state->occupancy) return false;
     for (int i = 0; i < state->size; i++) {
         if (state->occupancy[i] != 0) return true;
@@ -240,10 +243,13 @@ State* annihilation(State* state, int i, char spin, int dim){
     }else if(abs(state->occupancy[idx]) == 0){
         return make_a_vector_of_zero_state_lengthed(dim, state);
     }else{
-        State* ret_state = malloc(sizeof(state));
+        State* ret_state = malloc(sizeof(State));
+        ret_state->occupancy = malloc(sizeof(int));
         ret_state->occupancy[idx]= 0;
+
         State* signed_ret_state = malloc(sizeof(State));
         signed_ret_state->size = dim;
+        //signed_ret_state->occupancy = malloc(sizeof(int));
         signed_ret_state->occupancy = malloc(dim * sizeof(int));
         for(int i = 0; i<dim; i++){ //dim = sizeof(state) normalement
             signed_ret_state->occupancy[i] = sign_factor * ret_state->occupancy[i];
@@ -281,12 +287,15 @@ State* creation(State* state, int i, char spin, int dim){
     }else if(abs(state->occupancy[idx]) == 1){
         return make_a_vector_of_zero_state_lengthed(dim, state);
     }else{
-        State* ret_state = state;
+        State* ret_state = malloc(sizeof(State));
+        ret_state->occupancy = malloc(sizeof(int)); //ou alors juste ret_state->size * sizeof(in) ?
+        for(int i = 0; i<state->size; i++) ret_state->occupancy[i] = state->occupancy[i]; // instead of state.copy() ?
         ret_state->occupancy[idx] = 1;
-        State* signed_ret_state;
-        for(int i = 0; i<dim; i++){ //dim = sizeof(state) normalement
-            signed_ret_state->occupancy[i] = sign_factor * ret_state->occupancy[i];
-        }
+
+        State* signed_ret_state = malloc(sizeof(State));
+        signed_ret_state->size = dim;
+        signed_ret_state->occupancy = malloc(dim * sizeof(int));
+        for(int i = 0; i<dim; i++) signed_ret_state->occupancy[i] = sign_factor * ret_state->occupancy[i];//dim = sizeof(state) normalement
         return signed_ret_state;
     }
 }
