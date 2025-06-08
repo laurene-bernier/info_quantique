@@ -102,7 +102,7 @@ bool state_equal(State* state1, State* state2){ // test if state are equal in si
 State* abs_state(State* state_not_in_absolute_value){ // transform each value of state in an absolute value
     State* state_in_absolute_value = malloc(sizeof(State));
     state_in_absolute_value->size = state_not_in_absolute_value->size;
-    state_in_absolute_value->occupancy = malloc(sizeof(int)); // need to allocate memory to occupancy // state_not_in_absolute_value->size * ?
+    state_in_absolute_value->occupancy = malloc(state_in_absolute_value->size * sizeof(int)); // need to allocate memory to occupancy // state_not_in_absolute_value->size * ?
     for(int i = 0; i < state_not_in_absolute_value->size; i++){
         state_in_absolute_value->occupancy[i] = abs(state_not_in_absolute_value->occupancy[i]);
     }
@@ -244,13 +244,14 @@ State* annihilation(State* state, int i, char spin, int dim){
         return make_a_vector_of_zero_state_lengthed(dim, state);
     }else{
         State* ret_state = malloc(sizeof(State));
-        ret_state->occupancy = malloc(sizeof(int));
+        ret_state->size = dim;
+        ret_state->occupancy = malloc(ret_state->size * sizeof(int));
         ret_state->occupancy[idx]= 0;
 
         State* signed_ret_state = malloc(sizeof(State));
         signed_ret_state->size = dim;
         //signed_ret_state->occupancy = malloc(sizeof(int));
-        signed_ret_state->occupancy = malloc(dim * sizeof(int));
+        signed_ret_state->occupancy = malloc(signed_ret_state->size * sizeof(int));
         for(int i = 0; i<dim; i++){ //dim = sizeof(state) normalement
             signed_ret_state->occupancy[i] = sign_factor * ret_state->occupancy[i];
         }
@@ -319,9 +320,8 @@ int hopping_term_sign_factor(State* state_i, int i, int k, char spin){
 
 // Main function :
 StateList* get_hubbard_states(int N, int dim) { // get_hubbard_states(N, dim)
-    CombinationList *combs = malloc(sizeof(CombinationList));
-    combs = combinations_iterative(dim, N); // dim = nombre de particule & N = nombre de site
-    //if (!combs) return NULL;
+    CombinationList *combs = combinations_iterative(dim, N); // dim = nombre de particule & N = nombre de site
+    if (!combs) return NULL;
     
     StateList *state_list = malloc(sizeof(StateList));
     state_list->count = combs->count;
@@ -342,7 +342,7 @@ StateList* get_hubbard_states(int N, int dim) { // get_hubbard_states(N, dim)
     if (!state_list || !state_list->states) {
         free(state_list); // au cas où state_list est non NULL
         free_combination_list(combs);
-        //return NULL;
+        return NULL;
     }
     
     free_combination_list(combs);

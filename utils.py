@@ -89,24 +89,24 @@ def numpy_to_c_matrix(np_matrix):
     
     return t_matrix
 
-def c_matrix_to_numpy(c_hamiltonian):
+def c_matrix_to_numpy(hamiltonian_c):
     """Convertit une HamiltonianMatrix C en matrice NumPy"""
-    dim = c_hamiltonian.contents.dim
+    dim = hamiltonian_c.contents.dim
     np_matrix = np.zeros((dim, dim))
     
     for i in range(dim):
         for j in range(dim):
-            np_matrix[i, j] = c_hamiltonian.contents.matrix[i][j]
+            np_matrix[i, j] = hamiltonian_c.contents.matrix[i][j]
     
     return np_matrix
 
-def c_states_to_numpy(c_statelist):
+def c_states_to_numpy(statelist_c):
     """Convertit une StateList C en array NumPy"""
-    count = c_statelist.contents.count
+    count = statelist_c.contents.count
     states = []
     
     for i in range(count):
-        state = c_statelist.contents.states[i]
+        state = statelist_c.contents.states[i]
         size = state.size
         occupancy = [state.occupancy[j] for j in range(size)]
         states.append(occupancy)
@@ -558,13 +558,18 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
     t_matrix_py = t_matrix_py * eV  # Convert t from eV to Joules
 
     # Number of sites
-    N = len(init_binary_state) // 2  
+    N = len(init_binary_state) // 2
+    dim = len(init_binary_state)
 
     
 
     # Hamiltonian and states
     #H = hubbard_hamiltonian_matrix(N, t_matrix, U)
     #H = lib_utils_c.hubbard_hamiltonian_matrix(N, t_matrix, U, statelist)
+
+    # Avant l'appel à get_hubbard_states :
+    print(f"DEBUG: About to call get_hubbard_states with N={N}, dim={dim}")
+    print(f"DEBUG: Types: N={type(N)}, dim={type(dim)}")
 
     c_states = lib_utils_c.get_hubbard_states(N, 2*N)
     #print("c_state = ", c_states)
