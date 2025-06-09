@@ -351,23 +351,25 @@ StateList* get_hubbard_states(int N, int dim) { // get_hubbard_states(N, dim)
 }
 
 
-HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix** t_matrix, double U, int dim, int V){
+HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double U, int dim, int V){
+    printf("2_Hello world !");
     StateList* statelist = get_hubbard_states(N, dim); // Get all possible Hubbard states
+    printf("3_Hello world !");
     dim = statelist->count;  // Dimension of the Hilbert space
     
-
+    
     HamiltonianMatrix* H = allocate_memory_hamiltonian(dim);
     H = initialize_matrix_with_zeros(H, dim);
-    
+    printf("4_Hello world !");
     
     // Loop over all states (rows)
     for(int i = 0; i < dim; i++){
         State* state_i = &statelist->states[i];
-        
+        printf("6_Hello world !");
         // Loop over all states (columns)
         for(int j = 0; j < dim; j++){
             State* state_j = &statelist->states[j];
-            
+            printf("7_Hello world !");
             // Diagonal elements: Coulomb interaction term 
             if(i == j){
                 for (int site =0; site < N; site ++){
@@ -377,6 +379,7 @@ HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix** t_matrix, double
                     H->matrix[i][j] += U * n_up * n_down;
                 }
                 
+                
                 if(V != 0){
                     for (int site1 = 0; site1 < N; site1++){
                         int site2 = site1 + 1;
@@ -385,6 +388,7 @@ HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix** t_matrix, double
                         H->matrix[i][i] += V * n1 * n2;
                     }
                 }
+                
             }
                 
             // Off-diagonal: Hopping terms
@@ -399,14 +403,17 @@ HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix** t_matrix, double
                             for (int l = 0; l < 2; l++) {
                                 char spin = spins[l];
                                 State* temp = annihilation(state_i, site1, spin, dim);
+                               
                                 // Check if there is a spin to move at site1 with spin
                                 if(temp != NULL){
                                     int site2 = site2_list[s];
                                     State* final = creation(temp, site2, spin, dim); // 0 if already occupied
-
+                                    
                                     if(state_equal(abs_state(final), state_j)){ // problem
                                         int sign = hopping_term_sign_factor(state_i, site1, site2, spin); // --> a voir antisymétries des fermions
-                                        H->matrix[i][j] -= (*t_matrix)->t_matrix[site1][site2] * sign;
+                                        
+                                        H->matrix[i][j] -= t_matrix->t_matrix[site1][site2] * sign;
+                                        printf("Hello_____world !");
                                     }
                                 }
                             }
@@ -440,5 +447,14 @@ void top_hubbard_states_calculation(int temps, int U, t_matrix* t_matrix, State*
 }
 
 int main(){
+    int V = 0;
+    int N = 4;
+    int dim = 2 * N;
+    double U = 2;
+    t_matrix* t_matrix;
+    printf("1_Hello world !");
+    HamiltonianMatrix* Hreturned = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V);
+    printf("5_Hello world !");
+    //printf("H retourné : %llf", (Hreturned->matrix[2][4]));
     return 0;
 }

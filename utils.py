@@ -652,9 +652,12 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figsize, nbr
     V = 0
     N = 4
     dim = 2 * N
+    
     t_matrix_c = numpy_to_c_matrix(t_matrix_py)
+    
+    
 
-    H_c = lib_utils_c.hubbard_hamiltonian_matrix(
+    H_c = lib_utils_c.hubbard_hamiltonian_matrix( 
         ctypes.c_int(N), 
         ctypes.pointer(t_matrix_c),
         ctypes.c_double(U), 
@@ -662,6 +665,8 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figsize, nbr
         ctypes.c_int(V)
         )
     
+    print("Hello world !")
+
     init_binary_state_c = python_list_to_c_state(init_binary_state)
 
     lib_utils_c.top_hubbard_states_calculation(
@@ -758,3 +763,13 @@ def test_get_hubbard_states(N):
     except Exception as e:
         print(f"Erreur lors du test: {e}")
         return None
+
+T = sc.hbar * 15*102 / (0.0394e-3 * sc.e)
+U = 2.45e-3
+t_matrix_py = 0.0394e-3*get_hopping_simple_matrix(4,1)
+init_binary_state=[0,1,1,0,1,0,1,0]
+top_n=4
+figsize=(12,6)
+nbr_pts=1000
+
+top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figsize, nbr_pts)
