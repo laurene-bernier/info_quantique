@@ -426,7 +426,7 @@ int fig_width = 8;
 int fig_heigth = 4;
 
 // --> problème de mémoire : crash 3 
-void top_hubbard_states_calculation(int temps, int U, t_matrix* t_matrix, State* init_binary_state, int top_n, int fig_width, int fig_heigth, int nbr_pts){
+void top_hubbard_states_calculation(int temps, int U, t_matrix* t_matrix, State* init_binary_state, int top_n, int nbr_pts){
     // U = U * eV;  // Convert U from eV to Joules
     // //for(int i = 0; i<t_matrix->t_dim; i++) t_matrix->t_matrix[i] = t_matrix->t_matrix[i] * eV;  // Convert t from eV to Joules
 

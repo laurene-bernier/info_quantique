@@ -87,7 +87,7 @@ HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double 
 StateList* get_hubbard_states(int N, int dim); // in process
 
 //void top_hubbard_state(int temps, int U, t_matrix* t_matrix, int init_binary_state, int top_n, int fig_width, int fig_heigth, int nbr_pts);
-void top_hubbard_states_calculation(int temps, int U, t_matrix* t_matrix, State* init_binary_state, int top_n, int fig_width, int fig_heigth, int nbr_pts);
+void top_hubbard_states_calculation(int temps, int U, t_matrix* t_matrix, State* init_binary_state, int top_n, int nbr_pts);
 //State* get_hubbard_states(int N, int *num_states);
 
 
