@@ -63,11 +63,15 @@ def meshgrid_u_t(filename: str, u_min: float = -4, u_max: float = -3, t_min: flo
             U_ij     = uu[i, j] 
             t_mat_ij = tt[i, j] * t_matrix_base
             temps = sc.hbar * 15*fenetre / (tt[i, j] * sc.e)
-            T, Tmp, _ = top_hubbard_states(
-                T=temps,
-                U=U_ij,
-                t_matrix_py=t_mat_ij,
-                display=False,
+            T=temps
+            U=U_ij
+            display=False
+            t_matrix_py=t_mat_ij
+            T, Tmp, _ = lib_utils_c.top_hubbard_states(
+                T,
+                U,
+                t_matrix_py,
+                display
             )
             # Peak detection
             peaks, _ = find_peaks(Tmp[1])
@@ -348,7 +352,13 @@ def compute_hopping(a=1.276, sigma = 6 ,b=4, m_eff=0.067 * sc.m_e, N=2000, L=100
 
 
 temps = sc.hbar * 15*102 / (0.0394e-3 * sc.e)  # conversion --> ?
-T, Tmp, _ = top_hubbard_states(T=temps, U=2.45e-3, t_matrix_py=0.0394e-3*get_hopping_simple_matrix(4,1)) #, display=True
+tps = ctypes.c_double(temps)
+U=2.45e-3
+U_c = ctypes.c_double(U)
+t_matrix_py=0.0394e-3*get_hopping_simple_matrix(4,1)
+display = True
+
+T, Tmp, _ = lib_utils_c.top_hubbard_states(tps, U_c, t_matrix_py, display) #, display=True
 
 #t_matrix_flat = t_matrix_py.astype(np.float64).flatten()
     #t_matrix_c = t_matrix_flat.ctypes.data_as(ctypes.POINTER(ctypes.c_double))

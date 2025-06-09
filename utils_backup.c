@@ -350,6 +350,7 @@ StateList* get_hubbard_states(int N, int dim) { // get_hubbard_states(N, dim)
     return state_list;
 }
 
+
 HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double U, int dim, int V){
     StateList* statelist = get_hubbard_states(N, dim); // Get all possible Hubbard states
     dim = statelist->count;  // Dimension of the Hilbert space
@@ -418,7 +419,25 @@ HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double 
     return H;
 }
 
+//int init_binary_state = {0,1,1,0,1,0,1,0};
+int top_n = 4;
+int nbr_pts = 1000;
+int fig_width = 8;
+int fig_heigth = 4;
+
 // --> problème de mémoire : crash 3 
+void top_hubbard_states_calculation(int temps, int U, t_matrix* t_matrix, State* init_binary_state, int top_n, int fig_width, int fig_heigth, int nbr_pts){
+    // U = U * eV;  // Convert U from eV to Joules
+    // //for(int i = 0; i<t_matrix->t_dim; i++) t_matrix->t_matrix[i] = t_matrix->t_matrix[i] * eV;  // Convert t from eV to Joules
+
+    // // Number of sites
+    // int N = init_binary_state->size; // 2
+    // int dim = init_binary_state->size;
+    // StateList* states;
+    // states->states = get_hubbard_states(N, dim);
+    // int V = 0;
+    // HamiltonianMatrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V);
+}
 
 int main(){
     return 0;
