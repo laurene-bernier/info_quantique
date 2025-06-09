@@ -653,12 +653,10 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figsize, nbr
     N = 4
     dim = 2 * N
     t_matrix_c = numpy_to_c_matrix(t_matrix_py)
-    t_matrix_ptr = ctypes.pointer(t_matrix_c)      # t_matrix*
-    t_matrix_ptr_ptr = ctypes.pointer(t_matrix_ptr) # t_matrix**
 
     H_c = lib_utils_c.hubbard_hamiltonian_matrix(
         ctypes.c_int(N), 
-        t_matrix_ptr_ptr, 
+        ctypes.pointer(t_matrix_c),
         ctypes.c_double(U), 
         ctypes.c_int(dim), 
         ctypes.c_int(V)
@@ -669,7 +667,7 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figsize, nbr
     lib_utils_c.top_hubbard_states_calculation(
         ctypes.c_double(T), 
         ctypes.c_double(U), 
-        t_matrix_ptr_ptr, 
+        ctypes.pointer(t_matrix_c),
         ctypes.byref(init_binary_state_c), 
         ctypes.c_int(top_n=4), 
         ctypes.c_int(nbr_pts=1000)

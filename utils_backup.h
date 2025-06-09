@@ -7,6 +7,7 @@
 
 // Structure for t_matrix
 typedef struct {
+    //long long **t_matrix;
     long long **t_matrix;
     long long t_dim;
 } t_matrix;
