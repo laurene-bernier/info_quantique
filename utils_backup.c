@@ -140,14 +140,15 @@ int binomial_coefficient(int n, int k) { // Calculation of the binomial coeffici
     for (int i = 0; i < k; i++) {
         result = result * (n - i) / (i + 1);
     }
-    return (int)result;
+    return (long long)result;
 }
 
 CombinationList* init_combination_list(int n, int k) { // Initialization of the combinations list
     CombinationList *list = malloc(sizeof(CombinationList));
     list->count = 0;
     list->max_count = binomial_coefficient(n, k);
-    list->combinations = malloc(list->max_count * sizeof(Combination));
+    long long abs_count = abs(list->max_count * sizeof(Combination));
+    list->combinations = malloc(abs_count);
     
     // Initialiser chaque combinaison
     for (int i = 0; i < list->max_count; i++) {
@@ -197,11 +198,11 @@ CombinationList* combinations_iterative(int n, int k) { // Itérative version  (
 }
 
 void print_combinations(CombinationList *list) { // To print combinations
-    printf("Nombre de combinaisons: %d\n", list->count);
+    printf("Nombre de combinaisons: %lld\n", list->count);
     for (int i = 0; i < list->count; i++) {
         printf("Combinaison %d: [", i);
         for (int j = 0; j < list->combinations[i].size; j++) {
-            printf("%d", list->combinations[i].indices[j]);
+            printf("%lld", list->combinations[i].indices[j]);
             if (j < list->combinations[i].size - 1) printf(", ");
         }
         printf("]\n");
@@ -233,9 +234,9 @@ State* annihilation(State* state, int i, char spin, int dim){
     else idx = 2*i + 1;
 
     //Calculate the Fermi sign factor
-    int summed_state = 0;
-    for(int i = 0; i < idx; i ++) summed_state += state->occupancy[i];
-    int S_i = abs(summed_state);
+    long long summed_state = 0;
+    for(long long i = 0; i < idx; i ++) summed_state += state->occupancy[i];
+    long long S_i = abs(summed_state);
     int sign_factor = pow((-1), S_i);
 
     if(any(state) == false){
@@ -289,14 +290,14 @@ State* creation(State* state, int i, char spin, int dim){
         return make_a_vector_of_zero_state_lengthed(dim, state);
     }else{
         State* ret_state = malloc(sizeof(State));
-        ret_state->occupancy = malloc(sizeof(int)); //ou alors juste ret_state->size * sizeof(in) ?
-        for(int i = 0; i<state->size; i++) ret_state->occupancy[i] = state->occupancy[i]; // instead of state.copy() ?
+        ret_state->occupancy = malloc(sizeof(long long)); //ou alors juste ret_state->size * sizeof(in) ?
+        for(long long i = 0; i<state->size; i++) ret_state->occupancy[i] = state->occupancy[i]; // instead of state.copy() ?
         ret_state->occupancy[idx] = 1;
 
         State* signed_ret_state = malloc(sizeof(State));
         signed_ret_state->size = dim;
-        signed_ret_state->occupancy = malloc(dim * sizeof(int));
-        for(int i = 0; i<dim; i++) signed_ret_state->occupancy[i] = sign_factor * ret_state->occupancy[i];//dim = sizeof(state) normalement
+        signed_ret_state->occupancy = malloc(dim * sizeof(long long));
+        for(long long i = 0; i<dim; i++) signed_ret_state->occupancy[i] = sign_factor * ret_state->occupancy[i];//dim = sizeof(state) normalement
         return signed_ret_state;
     }
 }
@@ -327,7 +328,7 @@ StateList* get_hubbard_states(int N, int dim) { // get_hubbard_states(N, dim)
     state_list->count = combs->count;
     state_list->states = malloc(combs->count * sizeof(State));
     
-    for (int i = 0; i < combs->count; i++) {
+    for (long long i = 0; i < combs->count; i++) {
         // Initialiser l'état avec des zéros
         state_list->states[i].size = dim;
         state_list->states[i].occupancy = calloc(dim, sizeof(int));
@@ -418,3 +419,7 @@ HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double 
 }
 
 // --> problème de mémoire : crash 3 
+
+int main(){
+    return 0;
+}

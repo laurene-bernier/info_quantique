@@ -19,8 +19,8 @@ typedef struct {
 
 // Structure pour représenter un état quantique
 typedef struct {
-    int *occupancy;  // Tableau d'occupation des sites (bits pour spin up/down)
-    int size;        // Nombre de sites
+    long long *occupancy;  // Tableau d'occupation des sites (bits pour spin up/down)
+    long long size;        // Nombre de sites
 } State;
 
 // 3 structures pour générer une combinaison :
@@ -32,15 +32,15 @@ typedef struct {
 
 // Structure to stock one state combination
 typedef struct {
-    int *indices;
-    int size;
+    long long *indices;
+    long long size;
 } Combination;
 
 // Structure to stock all states combinations
 typedef struct {
     Combination *combinations;
-    int count;
-    int max_count;
+    long long count;
+    long long max_count;
 } CombinationList;
 
 

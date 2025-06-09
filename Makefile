@@ -1,9 +1,9 @@
 
-all: clean utils.dll
+all: clean utils_backup.dll
 
 # linkage :
-utils.dll: utils_backup.o
-	gcc -shared -o utils.dll utils_backup.o
+utils_backup.dll: utils_backup.o
+	gcc -shared -o utils_backup.dll utils_backup.o
 
 # compilation :
 utils_backup.o: utils_backup.c
