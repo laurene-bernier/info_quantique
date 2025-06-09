@@ -76,8 +76,6 @@ lib_utils_c.top_hubbard_states_calculation.argtypes = [
     ctypes.POINTER(TMatrix),         # t_matrix_py (needs to be converted)
     ctypes.POINTER(State),           # init_binary_state (converted State)
     ctypes.c_int,                    # top_n
-    ctypes.c_double,                 # figsize[0] - you might need to adjust this
-    ctypes.c_double,                 # figsize[1] - you might need to adjust this
     ctypes.c_int                     # nbr_pts
 ]
 lib_utils_c.top_hubbard_states_calculation.restype = ctypes.c_void_p  # o
@@ -573,7 +571,7 @@ def get_hopping_simple_matrix(N, t):
     return t_matrix_py
 
 
-def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], top_n=4, figsize=(12,6), nbr_pts=1000):
+def top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figsize, nbr_pts):
 
     """
     Plot the top_n Hubbard states with the highest transition probabilities over time.
