@@ -351,8 +351,15 @@ def compute_hopping(a=1.276, sigma = 6 ,b=4, m_eff=0.067 * sc.m_e, N=2000, L=100
     return delta_E, T_tunnel
 
 display = True
+T = sc.hbar * 15*102 / (0.0394e-3 * sc.e)
+U = 2.45e-3
+t_matrix_py = 0.0394e-3*get_hopping_simple_matrix(4,1)
+init_binary_state=[0,1,1,0,1,0,1,0]
+top_n=4
+figsize=(12,6)
+nbr_pts=1000
 
-T, Tmp, _ = top_hubbard_states(T = sc.hbar * 15*102 / (0.0394e-3 * sc.e), U = 2.45e-3, t_matrix_py = 0.0394e-3*get_hopping_simple_matrix(4,1), init_binary_state=[0,1,1,0,1,0,1,0], top_n=4, figsize=(12,6), nbr_pts=1000) #, display=True
+T, Tmp, _ = top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figsize, nbr_pts) #, display=True
 
 #t_matrix_flat = t_matrix_py.astype(np.float64).flatten()
     #t_matrix_c = t_matrix_flat.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
