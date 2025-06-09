@@ -84,18 +84,19 @@ HamiltonianMatrix* initialize_matrix_with_zeros(HamiltonianMatrix* H, int dim){ 
     return H;
 }
 
-bool state_equal(State* state1, State* state2){ // test if state are equal in size and in content
-    bool isequal;
-    if(!state1 || !state2) return false;
-    if(state1->size == state2->size) {
-        for(int i = 0; i < state1->size; i++) {
-            if (state1->occupancy[i] != state2->occupancy[i]) {
-                isequal = false;
-            }
+bool state_equal(State* state1, State* state2) {
+    if (!state1 || !state2 || !state1->occupancy || !state2->occupancy) 
+        return false;
+    
+    if (state1->size != state2->size) 
+        return false;
+    
+    for(int i = 0; i < state1->size; i++) {
+        if (state1->occupancy[i] != state2->occupancy[i]) {
+            return false;
         }
-        isequal = true;
     }
-    return isequal;
+    return true;
 }
 
 
@@ -290,13 +291,14 @@ State* creation(State* state, int i, char spin, int dim){
         return make_a_vector_of_zero_state_lengthed(dim, state);
     }else{
         State* ret_state = malloc(sizeof(State));
-        ret_state->occupancy = malloc(sizeof(long long)); //ou alors juste ret_state->size * sizeof(in) ?
+        ret_state->size = dim;
+        ret_state->occupancy = malloc(ret_state->size * sizeof(int)); //ou alors juste ret_state->size * sizeof(in) ?
         for(long long i = 0; i<state->size; i++) ret_state->occupancy[i] = state->occupancy[i]; // instead of state.copy() ?
         ret_state->occupancy[idx] = 1;
 
         State* signed_ret_state = malloc(sizeof(State));
         signed_ret_state->size = dim;
-        signed_ret_state->occupancy = malloc(dim * sizeof(long long));
+        signed_ret_state->occupancy = malloc(signed_ret_state->size * sizeof(long long));
         for(long long i = 0; i<dim; i++) signed_ret_state->occupancy[i] = sign_factor * ret_state->occupancy[i];//dim = sizeof(state) normalement
         return signed_ret_state;
     }
