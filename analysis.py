@@ -354,11 +354,11 @@ def compute_hopping(a=1.276, sigma = 6 ,b=4, m_eff=0.067 * sc.m_e, N=2000, L=100
 temps = sc.hbar * 15*102 / (0.0394e-3 * sc.e)  # conversion --> ?
 tps = ctypes.c_double(temps)
 U=2.45e-3
-U_c = ctypes.c_double(U)
 t_matrix_py=0.0394e-3*get_hopping_simple_matrix(4,1)
+
 display = True
 
-T, Tmp, _ = top_hubbard_states(tps, U_c, t_matrix_py, display) #, display=True
+T, Tmp, _ = top_hubbard_states(tps, U, t_matrix_py, display) #, display=True
 
 #t_matrix_flat = t_matrix_py.astype(np.float64).flatten()
     #t_matrix_c = t_matrix_flat.ctypes.data_as(ctypes.POINTER(ctypes.c_double))

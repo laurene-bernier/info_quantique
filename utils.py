@@ -70,8 +70,55 @@ lib_utils_c.hubbard_hamiltonian_matrix.argtypes = [
 ]
 lib_utils_c.hubbard_hamiltonian_matrix.restype = ctypes.POINTER(HamiltonianMatrix)
 
+lib_utils_c.top_hubbard_states_calculation.argtypes = [
+    ctypes.c_double,                 # T
+    ctypes.c_double,                 # U  
+    ctypes.POINTER(TMatrix),         # t_matrix_py (needs to be converted)
+    ctypes.POINTER(State),           # init_binary_state (converted State)
+    ctypes.c_int,                    # top_n
+    ctypes.c_double,                 # figsize[0] - you might need to adjust this
+    ctypes.c_double,                 # figsize[1] - you might need to adjust this
+    ctypes.c_int                     # nbr_pts
+]
+lib_utils_c.top_hubbard_states_calculation.restype = ctypes.c_void_p  # o
+
 # Fonctions utiles pour la conversion :
 # Fonctions utilitaires pour la conversion
+def python_list_to_c_state(python_list):
+    """
+    Converts a Python list to a C State structure
+    
+    Parameters:
+    python_list: list, Python list representing the state (e.g., [0,1,1,0,1,0,1,0])
+    
+    Returns:
+    State: C State structure
+    """
+    # Create the State structure
+    state = State()
+    state.size = len(python_list)
+    
+    # Allocate memory for the occupancy array
+    state.occupancy = (ctypes.c_int * len(python_list))()
+    
+    # Fill the occupancy array with values from the Python list
+    for i, value in enumerate(python_list):
+        state.occupancy[i] = int(value)
+    
+    return state
+
+def numpy_array_to_c_state(numpy_array):
+    """
+    Converts a NumPy array to a C State structure
+    
+    Parameters:
+    numpy_array: np.array, NumPy array representing the state
+    
+    Returns:
+    State: C State structure
+    """
+    return python_list_to_c_state(numpy_array.tolist())
+
 def numpy_to_c_matrix(np_matrix):
     """Convertit une matrice NumPy en structure C"""
     rows, cols = np_matrix.shape
@@ -604,11 +651,28 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
     #     print(f"ERROR: Cannot convert c_states to numpy: {e}")
     #     return None, None, None
 
-    # V = 0
+    V = 0
+    N = 4
+    t_matrix_c = numpy_to_c_matrix(t_matrix_py)
 
-    # t_matrix_c = numpy_to_c_matrix(t_matrix_py)
-    # H_c = lib_utils_c.hubbard_hamiltonian_matrix(N, t_matrix_c, U, dim, V)
-    lib_utils_c.top_hubbard_states_calculation(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], top_n=4, figsize=(12,6), nbr_pts=1000)
+    # H_c = lib_utils_c.hubbard_hamiltonian_matrix(
+    #     ctypes.c_int(N), 
+    #     ctypes.byref(t_matrix_c), 
+    #     ctypes.c_double(U), 
+    #     ctypes.c_int(dim), 
+    #     ctypes.c_int(V)
+    #     )
+    
+    init_binary_state_c = python_list_to_c_state(init_binary_state)
+
+    lib_utils_c.top_hubbard_states_calculation(
+        ctypes.c_double(T), 
+        ctypes.c_double(U), 
+        ctypes.byref(t_matrix_c), 
+        ctypes.byref(init_binary_state_c), 
+        ctypes.c_int(top_n=4), 
+        ctypes.c_int(nbr_pts=1000)
+        )
     
     H_py = c_matrix_to_numpy(H_c)
     # print(H_py)
@@ -675,7 +739,9 @@ def test_get_hubbard_states(N):
         print(f"Test get_hubbard_states avec N={N}")
         
         # Appeler la fonction C
-        result = lib_utils_c.get_hubbard_states(N)
+        result = lib_utils_c.get_hubbard_states(
+            ctypes.c_int(N)
+            )
         
         if not result:
             print("Erreur: get_hubbard_states a retourné NULL")
