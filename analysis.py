@@ -372,10 +372,10 @@ T, Tmp, _ = top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figs
 #test_get_hubbard_states(N = 100)
 
 top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figsize, nbr_pts)
-
+print("salut tout le monde")
 #compute_hopping(a=3, sigma = 3,b=2, m_eff=0.067 * sc.m_e, N=2000, L=100e-9, plot=True)
 draw_potential(a=1.276, sigma = 10, b=4, x_vals = np.linspace(-100e-9, 100e-9, 10000), display=True)
-
+print("dzbkbkbz")
 compute_hopping(a=1.276, sigma = 6,b=20, m_eff=0.067 * sc.m_e, N=2000, L=100e-9, plot=True)
 #plot_meshgrid_from_file(filename: str, key: str, logscale: bool = False)
 

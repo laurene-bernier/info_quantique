@@ -66,7 +66,7 @@ State* make_a_vector_of_zero_state_lengthed(int dim, State* state); // done
 
 
 // 3) for the denombrement in get_hubard_state :
-int binomial_coefficient(int n, int k); // done
+long long binomial_coefficient(int n, int k); // done
 CombinationList* init_combination_list(int n, int k); // done
 CombinationList* combinations_iterative(int n, int k); // done
 //CombinationList* combinations(int n, int k);

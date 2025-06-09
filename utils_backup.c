@@ -130,18 +130,29 @@ int min(int a, int b) { return (a < b) ? a : b; }
 int max(int a, int b) { return (a > b) ? a : b; }
 
 // 3) for the denombrement in get_hubard_state :
-int binomial_coefficient(int n, int k) { // Calculation of the binomial coefficient C(n,k)
-    if (k > n || k < 0) return 0;
-    if (k == 0 || k == n) return 1;
+long long binomial_coefficient(int n, int k) { // Calculation of the binomial coefficient C(n,k)
+    // Version corrigée avec gestion d'erreurs
+    // Vérifications d'entrée
+    if (n < 0 || k < 0) return -1;  // Erreur : valeur négative
+    if (k > n) return 0;            // Cas valide : C(n,k) = 0 si k > n
+    if (k == 0 || k == n) return 1; // Cas de base
     
-    // Utiliser la propriété C(n,k) = C(n,n-k) pour optimiser
+    // Optimisation : utiliser la propriété C(n,k) = C(n,n-k)
     if (k > n - k) k = n - k;
     
     long long result = 1;
+    
+    // Calcul sécurisé pour éviter les débordements
     for (int i = 0; i < k; i++) {
+        // Vérifier le débordement potentiel
+        if (result > LLONG_MAX / (n - i)) {
+            return -1; // Erreur : débordement détecté
+        }
+        
         result = result * (n - i) / (i + 1);
     }
-    return (long long)result;
+    
+    return result;
 }
 
 CombinationList* init_combination_list(int n, int k) { // Initialization of the combinations list

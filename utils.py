@@ -577,7 +577,7 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
 
     dim = c_states.contents.count
 
-    statelist = lib_utils_c.get_hubbard_states(N, dim)
+    #statelist = lib_utils_c.get_hubbard_states(N, dim) #
     statelist_py = c_states_to_numpy(statelist)
     #print(statelist_py)
 
