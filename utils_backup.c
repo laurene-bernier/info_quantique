@@ -412,7 +412,7 @@ HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double 
                                     if(state_equal(abs_state(final), state_j)){ // problem
                                         int sign = hopping_term_sign_factor(state_i, site1, site2, spin); // --> a voir antisymétries des fermions
                                         
-                                        H->matrix[i][j] -= t_matrix->t_matrix[site1][site2] * sign;
+                                        H->matrix[i][j] -= t_matrix->t_matrix[site1][site2] * sign; //problème ???
                                         printf("Hello_____world !");
                                     }
                                 }
