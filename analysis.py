@@ -365,3 +365,4 @@ T, Tmp, _ = top_hubbard_states(T=temps, U=2.45e-3, t_matrix_py=0.0394e-3*get_hop
 #draw_potential(a=1.276, sigma = 10, b=4, x_vals = np.linspace(-100e-9, 100e-9, 10000), display=True)
 #plot_meshgrid_from_file(filename: str, key: str, logscale: bool = False)
 
+#test_c_functions()

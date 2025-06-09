@@ -335,7 +335,7 @@ StateList* get_hubbard_states(int N, int dim) { // get_hubbard_states(N, dim)
         
         // Mettre 1 aux positions occupées
         for (int j = 0; j < combs->combinations[i].size; j++) {
-            int index = combs->combinations[i].indices[j];
+            long long index = combs->combinations[i].indices[j];
             state_list->states[i].occupancy[index] = 1;
         }
     }

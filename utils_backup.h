@@ -7,14 +7,14 @@
 
 // Structure for t_matrix
 typedef struct {
-    int **t_matrix;
-    int t_dim;
+    long long **t_matrix;
+    long long t_dim;
 } t_matrix;
 
 // Structure pour la matrice Hamiltonienne
 typedef struct {
     double **matrix;
-    int dim;
+    long long dim;
 } HamiltonianMatrix;
 
 // Structure pour représenter un état quantique
@@ -27,7 +27,7 @@ typedef struct {
 // Structure to stock a state list
 typedef struct {
     State *states;
-    int count;
+    long long count;
 } StateList;
 
 // Structure to stock one state combination

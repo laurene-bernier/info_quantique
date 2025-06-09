@@ -561,7 +561,7 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
     N = len(init_binary_state) // 2
     dim = len(init_binary_state)
 
-    
+    #display = True
 
     # Hamiltonian and states
     #H = hubbard_hamiltonian_matrix(N, t_matrix, U)
@@ -569,8 +569,9 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
 
     # Avant l'appel à get_hubbard_states :
     print(f"DEBUG: About to call get_hubbard_states with N={N}, dim={dim}")
+    
     print(f"DEBUG: Types: N={type(N)}, dim={type(dim)}")
-
+    #display = True
     c_states = lib_utils_c.get_hubbard_states(N, 2*N)
     #print("c_state = ", c_states)
 
@@ -579,6 +580,29 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
     statelist = lib_utils_c.get_hubbard_states(N, dim)
     statelist_py = c_states_to_numpy(statelist)
     #print(statelist_py)
+
+    #Vérifier si c_states est valide
+    if not c_states:
+        print("ERROR: get_hubbard_states returned NULL")
+        return None, None, None
+
+    print(f"DEBUG: c_states pointer: {c_states}")
+    
+    # Essayer de lire le contenu
+    try:
+        dim = c_states.contents.count
+        print(f"DEBUG: Retrieved dim={dim} from C function")
+    except Exception as e:
+        print(f"ERROR: Cannot read c_states.contents.count: {e}")
+        return None, None, None
+
+    # Continuer avec le reste du code seulement si tout va bien jusqu'ici
+    try:
+        statelist_py = c_states_to_numpy(c_states)
+        print(f"DEBUG: Successfully converted to numpy, shape: {statelist_py.shape}")
+    except Exception as e:
+        print(f"ERROR: Cannot convert c_states to numpy: {e}")
+        return None, None, None
 
     V = 0
 
@@ -623,6 +647,7 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
     max_probs = probs.max(axis=1)
     top_idxs  = np.argsort(max_probs)[::-1][:top_n]
 
+    display = True
     # Plotting only the top states 
     if display:
         plt.figure(figsize=figsize)
