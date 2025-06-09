@@ -608,7 +608,7 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
 
     # t_matrix_c = numpy_to_c_matrix(t_matrix_py)
     # H_c = lib_utils_c.hubbard_hamiltonian_matrix(N, t_matrix_c, U, dim, V)
-    lib_utils_c.top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], top_n=4, figsize=(12,6), nbr_pts=1000)
+    lib_utils_c.top_hubbard_states_calculation(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], top_n=4, figsize=(12,6), nbr_pts=1000)
     
     H_py = c_matrix_to_numpy(H_c)
     # print(H_py)
