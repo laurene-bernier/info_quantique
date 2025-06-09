@@ -67,7 +67,7 @@ def meshgrid_u_t(filename: str, u_min: float = -4, u_max: float = -3, t_min: flo
             U=U_ij
             display=False
             t_matrix_py=t_mat_ij
-            T, Tmp, _ = lib_utils_c.top_hubbard_states(
+            T, Tmp, _ = top_hubbard_states(
                 T,
                 U,
                 t_matrix_py,
@@ -358,7 +358,7 @@ U_c = ctypes.c_double(U)
 t_matrix_py=0.0394e-3*get_hopping_simple_matrix(4,1)
 display = True
 
-T, Tmp, _ = lib_utils_c.top_hubbard_states(tps, U_c, t_matrix_py, display) #, display=True
+T, Tmp, _ = top_hubbard_states(tps, U_c, t_matrix_py, display) #, display=True
 
 #t_matrix_flat = t_matrix_py.astype(np.float64).flatten()
     #t_matrix_c = t_matrix_flat.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
