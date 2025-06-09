@@ -82,7 +82,7 @@ int hopping_term_sign_factor(State* state_i, int i, int k, char spin);
 // Main function :
 
 // to generate a hamiltonian matrix :
-HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double U, int dim, int V); // in process
+HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix** t_matrix, double U, int dim, int V); // in process
 //HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double U, StateList* statelist);
 StateList* get_hubbard_states(int N, int dim); // in process
 

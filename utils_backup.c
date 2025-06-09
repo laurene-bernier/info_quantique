@@ -351,7 +351,7 @@ StateList* get_hubbard_states(int N, int dim) { // get_hubbard_states(N, dim)
 }
 
 
-HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double U, int dim, int V){
+HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix** t_matrix, double U, int dim, int V){
     StateList* statelist = get_hubbard_states(N, dim); // Get all possible Hubbard states
     dim = statelist->count;  // Dimension of the Hilbert space
     
@@ -406,7 +406,7 @@ HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double 
 
                                     if(state_equal(abs_state(final), state_j)){ // problem
                                         int sign = hopping_term_sign_factor(state_i, site1, site2, spin); // --> a voir antisymétries des fermions
-                                        H->matrix[i][j] -= t_matrix->t_matrix[site1][site2] * sign;
+                                        H->matrix[i][j] -= (*t_matrix)->t_matrix[site1][site2] * sign;
                                     }
                                 }
                             }
