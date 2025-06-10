@@ -421,7 +421,10 @@ int hopping_term_sign_factor(State* state_i, int i, int k, char spin){
 StateList* get_hubbard_states(int N) { // get_hubbard_states(N, dim
     int dim = 2 * N;
     CombinationList *combs = combinations_iterative(N, dim); // dim = nombre de particule & N = nombre de site
-    if (!combs) return NULL;
+    if (!combs) {
+        free_combination_list(combs);
+        return NULL;
+    }
     StateList *state_list = malloc(sizeof(StateList));
     state_list->count = combs->count;
     state_list->states = malloc(combs->count * sizeof(State));
@@ -438,12 +441,11 @@ StateList* get_hubbard_states(int N) { // get_hubbard_states(N, dim
     }
 
     if (!state_list || !state_list->states) {
-
         free(state_list); // au cas où state_list est non NULL
-
         free_combination_list(combs);
         return NULL;
     }
+
     free_combination_list(combs);
     return state_list;
 }
@@ -454,6 +456,7 @@ Matrix* hubbard_hamiltonian_matrix(int N, Matrix* t_matrix, double U, int dim, i
     //dim = statelist->count;  // Dimension of the Hilbert space
     if (!statelist) {
         printf("Erreur: impossible de générer les états\n");
+        free_state_list(statelist);
         return NULL;
     }
     int hilbert_dim = (int)(statelist->count);  // Utilisez une nouvelle variable
@@ -528,6 +531,7 @@ Matrix* hubbard_hamiltonian_matrix(int N, Matrix* t_matrix, double U, int dim, i
         }
     }
     printf("test_111");
+    free_state_list(statelist);
     return H;
 }
 
@@ -574,11 +578,13 @@ void top_hubbard_states_calculation(int temps, int U, Matrix* t_matrix, State* i
     dim = states->count;
     int V = 0;
 
-    //var = ctypes.pointer(t_matrix_c)
-    printf("111111111111111111!");
-
     Matrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V);
     printf("Bientot");
+
+    // if(H){
+    //     free_memory_matrix(H, dim); // free memory
+    // }
+    free_state_list(states);
     // int V = 0;
     // Matrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V);
 }
@@ -591,26 +597,37 @@ int main(){
     double U = 2;
     int dim = 2 * N;
 
-    StateList* statelist = get_hubbard_states(N); // segmentation fault
+    StateList* statelist = malloc(sizeof(StateList));
+    statelist = get_hubbard_states(N); // segmentation fault
     //print_state_list(statelist);
 
     Matrix* t_matrix = create_tridiagonal_matrix(N);
 
     State state = statelist->states[0];
 
-    print_state(&state);
+    //print_state(&state);
 
     //State* state_nul;
     //state_nul = make_a_vector_of_zero_state_lengthed(3);
     //print_state(state_nul);
-    State* state_anni;
-    state_anni = creation(&state,  0,  'u');
+    free_state_list(statelist);
 
-    Matrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V); // in process
+    //State* state_anni;
+    //state_anni = creation(&state,  0,  'u');
+
+    //Matrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V); // in process
     
+    //print_matrix(H);
 
-    print_state(state_anni);
+    State* a;
+    State* b;
+    a->occupancy = malloc(sizeof(long long));
+    b->occupancy = malloc(sizeof(long long));
+    a->size = b->size;
+    bool bolen = state_equal(a, b);
+    printf("bool : %d", bolen);
+    //print_state(state_anni);
 
-
+    //free_state_list(statelist);
     return 0;
 }

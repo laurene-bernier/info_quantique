@@ -114,6 +114,55 @@ def c_states_to_numpy(statelist_c):
 
 
 # Functions
+def python_list_to_c_state(python_list: List[int]) -> ctypes.Structure:
+    """
+    Convertit une liste Python en structure C State
+    
+    Args:
+        python_list: Liste d'entiers (généralement 0 et 1) représentant l'état
+        
+    Returns:
+        Pointeur vers la structure C State
+        
+    Example:
+        >>> init_state = [0, 1, 1, 0, 1, 0, 1, 0]
+        >>> c_state = python_list_to_c_state(init_state)
+    """
+    
+    # Définition de la structure State en Python/ctypes
+    class State(ctypes.Structure):
+        _fields_ = [
+            ("size", ctypes.c_int),
+            ("occupancy", ctypes.POINTER(ctypes.c_longlong))
+        ]
+    
+    # Vérifications d'entrée
+    if not isinstance(python_list, (list, tuple, np.ndarray)):
+        raise TypeError("L'entrée doit être une liste, tuple ou array numpy")
+    
+    if len(python_list) == 0:
+        raise ValueError("La liste ne peut pas être vide")
+    
+    # Conversion en liste Python si c'est un array numpy
+    if isinstance(python_list, np.ndarray):
+        python_list = python_list.tolist()
+    
+    # Vérification que les valeurs sont des entiers
+    if not all(isinstance(x, (int, np.integer)) for x in python_list):
+        raise ValueError("Tous les éléments doivent être des entiers")
+    
+    # Création de la structure State
+    state = State()
+    state.size = len(python_list)
+    
+    # Création du tableau C pour occupancy
+    occupancy_array = (ctypes.c_longlong * len(python_list))()
+    for i, value in enumerate(python_list):
+        occupancy_array[i] = int(value)
+    
+    # Attribution du pointeur
+    state.occupancy = ctypes.cast(occupancy_array, ctypes.POINTER(ctypes.c_longlong))
+    
 
 
 
