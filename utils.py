@@ -52,7 +52,6 @@ eV = 1.602176634e-19  # eV to Joules conversion factor
 
 # déclaration utile pour l'interface python - c :
 
-# Configuration des types pour get_hubbard_states
 lib_utils_c.get_hubbard_states.argtypes = [
     ctypes.c_int,               # N
     ctypes.c_int                # dim
@@ -525,7 +524,6 @@ def get_hopping_simple_matrix(N, t):
         t_matrix_py[i+1, i] = t
     return t_matrix_py
 
-
 def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], top_n=4, figsize=(12,6), nbr_pts=1000):
 
     """
@@ -554,12 +552,12 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
         Displays the plot of the top_n Hubbard states with the highest transition probabilities over time.
     """
 
-    U = U * eV  # Convert U from eV to Joules
-    t_matrix_py = t_matrix_py * eV  # Convert t from eV to Joules
+    # U = U * eV  # Convert U from eV to Joules
+    # t_matrix_py = t_matrix_py * eV  # Convert t from eV to Joules
 
-    # Number of sites
-    N = len(init_binary_state) // 2
-    dim = len(init_binary_state)
+    # # Number of sites
+    # N = len(init_binary_state) // 2
+    # dim = len(init_binary_state)
 
     #display = True
 
@@ -568,70 +566,70 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
     #H = lib_utils_c.hubbard_hamiltonian_matrix(N, t_matrix, U, statelist)
 
     # Avant l'appel à get_hubbard_states :
-    print(f"DEBUG: About to call get_hubbard_states with N={N}, dim={dim}")
-    
-    print(f"DEBUG: Types: N={type(N)}, dim={type(dim)}")
     #display = True
-    c_states = lib_utils_c.get_hubbard_states(N, 2*N)
+    #c_states = lib_utils_c.get_hubbard_states(N, 2*N) # it work
     #print("c_state = ", c_states)
+    #print("test__2")
+    #dim = c_states.contents.count
+    #print("test__1")
+    # #statelist = lib_utils_c.get_hubbard_states(N, dim) #
+    # statelist_py = c_states_to_numpy(c_states)
+    # #print(statelist_py)
+    # print("test_2")
+    # #Vérifier si c_states est valide
+    # if not c_states:
+    #     print("ERROR: get_hubbard_states returned NULL")
+    #     return None, None, None
 
-    dim = c_states.contents.count
-
-    #statelist = lib_utils_c.get_hubbard_states(N, dim) #
-    statelist_py = c_states_to_numpy(statelist)
-    #print(statelist_py)
-
-    #Vérifier si c_states est valide
-    if not c_states:
-        print("ERROR: get_hubbard_states returned NULL")
-        return None, None, None
-
-    print(f"DEBUG: c_states pointer: {c_states}")
+    # print(f"DEBUG: c_states pointer: {c_states}")
     
-    # Essayer de lire le contenu
-    try:
-        dim = c_states.contents.count
-        print(f"DEBUG: Retrieved dim={dim} from C function")
-    except Exception as e:
-        print(f"ERROR: Cannot read c_states.contents.count: {e}")
-        return None, None, None
+    # # Essayer de lire le contenu
+    # try:
+    #     dim = c_states.contents.count
+    #     print(f"DEBUG: Retrieved dim={dim} from C function")
+    # except Exception as e:
+    #     print(f"ERROR: Cannot read c_states.contents.count: {e}")
+    #     return None, None, None
 
-    # Continuer avec le reste du code seulement si tout va bien jusqu'ici
-    try:
-        statelist_py = c_states_to_numpy(c_states)
-        print(f"DEBUG: Successfully converted to numpy, shape: {statelist_py.shape}")
-    except Exception as e:
-        print(f"ERROR: Cannot convert c_states to numpy: {e}")
-        return None, None, None
+    # # Continuer avec le reste du code seulement si tout va bien jusqu'ici
+    # try:
+    #     statelist_py = c_states_to_numpy(c_states)
+    #     print(f"DEBUG: Successfully converted to numpy, shape: {statelist_py.shape}")
+    # except Exception as e:
+    #     print(f"ERROR: Cannot convert c_states to numpy: {e}")
+    #     return None, None, None
 
+   
+
+    # var = ctypes.pointer(t_matrix_c)
+    # print("Hello world !")
+
+    # H_c = lib_utils_c.hubbard_hamiltonian_matrix( 
+    #     ctypes.c_int(N), 
+    #     var, # probleme ?
+    #     ctypes.c_double(U), 
+    #     ctypes.c_int(dim), 
+    #     ctypes.c_int(V)
+    #     )
+    
+    # print("Bientot")
+
+    
     V = 0
     N = 4
     dim = 2 * N
-    
     t_matrix_c = numpy_to_c_matrix(t_matrix_py) # probleme ?
-
-    var = ctypes.pointer(t_matrix_c)
-    print("Hello world !")
-
-    H_c = lib_utils_c.hubbard_hamiltonian_matrix( 
-        ctypes.c_int(N), 
-        var, # probleme ?
-        ctypes.c_double(U), 
-        ctypes.c_int(dim), 
-        ctypes.c_int(V)
-        )
-    
-    
-
     init_binary_state_c = python_list_to_c_state(init_binary_state)
+    top_n=4
+    nbr_pts =1000
 
     lib_utils_c.top_hubbard_states_calculation(
         ctypes.c_double(T), 
         ctypes.c_double(U), 
         ctypes.pointer(t_matrix_c),
         ctypes.byref(init_binary_state_c), 
-        ctypes.c_int(top_n=4), 
-        ctypes.c_int(nbr_pts=1000)
+        ctypes.c_int(top_n), 
+        ctypes.c_int(nbr_pts)
         )
     
     H_py = c_matrix_to_numpy(H_c)
@@ -652,10 +650,10 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
     T = T/sc.hbar
 
     # Initial state
-    idx0 = np.where(np.all(statelist == init_binary_state, axis=1))[0]
+    idx0 = np.where(np.all(c_states == init_binary_state, axis=1))[0]
     if idx0.size == 0:
         raise ValueError("Inital state not valid")
-    psi0 = np.zeros(len(statelist), dtype=complex)
+    psi0 = np.zeros(len(c_states), dtype=complex)
     psi0[idx0[0]] = 1.0
 
     # Temporal evolution
@@ -678,7 +676,7 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
     if display:
         plt.figure(figsize=figsize)
         for i in tqdm(top_idxs, desc="Tracé des top états"):
-            label = f"|{get_label(statelist[i])}>"
+            label = f"|{get_label(c_states[i])}>"
             plt.plot(sc.hbar * T, probs[i], label=label)
 
         plt.legend(loc='best', title=f'Top {top_n} états')
@@ -689,16 +687,16 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
         plt.tight_layout()
         plt.show()
 
-    return sc.hbar*T, probs[top_idxs], statelist[top_idxs]
+    return sc.hbar*T, probs[top_idxs], c_states[top_idxs]
 
 # Fonction de test pour get_hubbard_states
-def test_get_hubbard_states(N):
+def test_get_hubbard_states(N, dim):
     """Test de la fonction get_hubbard_states"""
     try:
         print(f"Test get_hubbard_states avec N={N}")
         
         # Appeler la fonction C
-        result = lib_utils_c.get_hubbard_states(N)
+        result = lib_utils_c.get_hubbard_states(N, dim)
         
         if not result:
             print("Erreur: get_hubbard_states a retourné NULL")
@@ -716,3 +714,25 @@ def test_get_hubbard_states(N):
     except Exception as e:
         print(f"Erreur lors du test: {e}")
         return None
+
+# Configuration des types pour get_hubbard_states
+
+# N = 2
+# dim = 2*N
+#test_get_hubbard_states(N, dim)
+T = 4
+U = 4
+t_matrix_py = get_hopping_simple_matrix(N=3, t=0.42)
+init_binary_state=[0,1,1,0,1,0,1,0]
+top_n=4
+figsize=(12,6)
+nbr_pts=1000
+
+T, Tmp, _ = top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figsize, nbr_pts)
+
+# lib_utils_c.simple.argtypes = []
+# lib_utils_c.simple.restype = ctypes.c_int
+
+# resultat = lib_utils_c.simple()
+# print(resultat)
+

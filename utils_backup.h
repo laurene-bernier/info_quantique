@@ -67,11 +67,11 @@ State* make_a_vector_of_zero_state_lengthed(int dim, State* state); // done
 
 // 3) for the denombrement in get_hubard_state :
 long long binomial_coefficient(int n, int k); // done
-CombinationList* init_combination_list(int n, int k); // done
-CombinationList* combinations_iterative(int n, int k); // done
+CombinationList* init_combination_list(int k, int n); // done
+CombinationList* combinations_iterative(int k, int n); // done n>k
 //CombinationList* combinations(int n, int k);
 void print_combinations(CombinationList *list); // utile ?
-StateList* generate_hubbard_states(int dim, int N);
+StateList* get_hubbard_states(int dim, int N);
 
 
 // Other specific function :
@@ -85,7 +85,7 @@ int hopping_term_sign_factor(State* state_i, int i, int k, char spin);
 // to generate a hamiltonian matrix :
 HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double U, int dim, int V); // in process
 //HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double U, StateList* statelist);
-StateList* get_hubbard_states(int N, int dim); // in process
+StateList* get_hubbard_states(int N, int dim); // done
 
 //void top_hubbard_state(int temps, int U, t_matrix* t_matrix, int init_binary_state, int top_n, int fig_width, int fig_heigth, int nbr_pts);
 void top_hubbard_states_calculation(int temps, int U, t_matrix* t_matrix, State* init_binary_state, int top_n, int nbr_pts);
@@ -96,4 +96,4 @@ void top_hubbard_states_calculation(int temps, int U, t_matrix* t_matrix, State*
 
 //double hopping_term_sign_factor(State state, int site1, int site2, char spin); // to do
 
-
+//int simple();
