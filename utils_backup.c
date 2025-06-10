@@ -501,7 +501,7 @@ Matrix* hubbard_hamiltonian_matrix(int N, Matrix* t_matrix, double U, int dim, i
                     for(int s = 0; s < 2; s++){
                         if(0 <= site2_list[s] && site2_list[s] < N){
                             char spins[2] = {'u', 'd'};
-                            for (int l = 0; l < 2; l++) {
+                            for (int l = 0; l < 2; l++) {           // bon !!
                                 char spin = spins[l];
 
                                 State* temp = annihilation(state_i, site1, spin);
@@ -511,27 +511,32 @@ Matrix* hubbard_hamiltonian_matrix(int N, Matrix* t_matrix, double U, int dim, i
 
                                     State* final = creation(temp, site2, spin); // 0 if already occupie
 
-                                    printf("final :");
+                                    printf("ETAPE FINALE AVAANT LA BOUCLE FOR:");
                                     print_state(final);
                                     if(state_equal(abs_state(final), state_j)){
-
                                         printf("sdfg !");
                                         int sign = hopping_term_sign_factor(state_i, site1, site2, spin); // --> a voir antisymétries des fermions
                                         printf("hopping !");
                                         H->matrix[i][j] -= t_matrix->matrix[site1][site2] * sign; //problème ???
                                         printf("Hello___world !");
                                     }
+                                    printf("toujours dans la boucle");
                                 }
+                                printf("on est sortie !!!!!!!!!!!");
                             }
+                            printf("sortie de la boucle for");
                         }
+                        printf("sortie de la première boucle if");
                     }
+                    printf("sortie de la 2eme boucle for");
                 }
+                printf("sortie de la troisième boucle for");
             }
             printf("j = %d", j);
         }
     }
     printf("test_111");
-    free_state_list(statelist);
+    //free_state_list(statelist);
     return H;
 }
 
@@ -600,8 +605,9 @@ int main(){
     StateList* statelist = malloc(sizeof(StateList));
     statelist = get_hubbard_states(N); // segmentation fault
     //print_state_list(statelist);
-
+    printf("first");
     Matrix* t_matrix = create_tridiagonal_matrix(N);
+    printf("second");
 
     State state = statelist->states[0];
 
@@ -610,25 +616,17 @@ int main(){
     //State* state_nul;
     //state_nul = make_a_vector_of_zero_state_lengthed(3);
     //print_state(state_nul);
-    free_state_list(statelist);
+    //free_state_list(statelist);
 
     //State* state_anni;
     //state_anni = creation(&state,  0,  'u');
+    printf("after");
+    Matrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V); // in process
+    printf("avant");
+    print_matrix(H);
 
-    // Matrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V); // in process
-    // printf("avant");
-    // print_matrix(H);
-    // printf("after");
 
-
-    State* a = malloc(sizeof(State));
-    State* b = malloc(sizeof(State));
-    a->size = b->size = 4;
-    a->occupancy = malloc(a->size * sizeof(long long));
-    b->occupancy = malloc(b->size * sizeof(long long));
-
-    bool bolen = state_equal(a, b);
-    printf("bool : %d", bolen);
+    
 
     //print_state(state_anni);
 
