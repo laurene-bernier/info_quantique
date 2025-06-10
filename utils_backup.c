@@ -139,7 +139,7 @@ Matrix* initialize_matrix_with_zeros(int dim){ // does what it is said in the ti
 }
 
 bool state_equal(State* state1, State* state2) {
-    if (!state1 || !state2 || !state1->occupancy || !state2->occupancy)
+    if (!state1 || !state2)
         return false;
 
     if (state1->size != state2->size)
@@ -453,7 +453,7 @@ StateList* get_hubbard_states(int N) { // get_hubbard_states(N, dim
 
 Matrix* hubbard_hamiltonian_matrix(int N, Matrix* t_matrix, double U, int dim, int V){
     StateList* statelist = get_hubbard_states(N); // Get all possible Hubbard states
-    //dim = statelist->count;  // Dimension of the Hilbert space
+    dim = statelist->count;  // Dimension of the Hilbert space
     if (!statelist) {
         printf("Erreur: impossible de générer les états\n");
         free_state_list(statelist);
@@ -504,24 +504,24 @@ Matrix* hubbard_hamiltonian_matrix(int N, Matrix* t_matrix, double U, int dim, i
                             for (int l = 0; l < 2; l++) {
                                 char spin = spins[l];
 
-                                // State* temp = annihilation(state_i, site1, spin);
+                                State* temp = annihilation(state_i, site1, spin);
                                 // // Check if there is a spin to move at site1 with spin
-                                // if(any(temp)){
-                                //     int site2 = site2_list[s];
+                                if(any(temp)){
+                                    int site2 = site2_list[s];
 
-                                //     State* final = creation(temp, site2, spin, dim); // 0 if already occupie
+                                    State* final = creation(temp, site2, spin); // 0 if already occupie
 
-                                //     printf("final :");
-                                //     print_state(final);
-                                //     if(state_equal(abs_state(final), state_j)){
+                                    printf("final :");
+                                    print_state(final);
+                                    if(state_equal(abs_state(final), state_j)){
 
-                                //         printf("sdfg !");
-                                //         int sign = hopping_term_sign_factor(state_i, site1, site2, spin); // --> a voir antisymétries des fermions
-                                //         printf("hopping !");
-                                //         H->matrix[i][j] -= t_matrix->matrix[site1][site2] * sign; //problème ???
-                                //         printf("Hello___world !");
-                                //     }
-                                //}
+                                        printf("sdfg !");
+                                        int sign = hopping_term_sign_factor(state_i, site1, site2, spin); // --> a voir antisymétries des fermions
+                                        printf("hopping !");
+                                        H->matrix[i][j] -= t_matrix->matrix[site1][site2] * sign; //problème ???
+                                        printf("Hello___world !");
+                                    }
+                                }
                             }
                         }
                     }
@@ -615,18 +615,21 @@ int main(){
     //State* state_anni;
     //state_anni = creation(&state,  0,  'u');
 
-    //Matrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V); // in process
-    
-    //print_matrix(H);
+    // Matrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V); // in process
+    // printf("avant");
+    // print_matrix(H);
+    // printf("after");
+
 
     State* a = malloc(sizeof(State));
     State* b = malloc(sizeof(State));
-    a->size = b->size;
+    a->size = b->size = 4;
     a->occupancy = malloc(a->size * sizeof(long long));
     b->occupancy = malloc(b->size * sizeof(long long));
-    a->size = b->size;
+
     bool bolen = state_equal(a, b);
     printf("bool : %d", bolen);
+
     //print_state(state_anni);
 
     //free_state_list(statelist);
