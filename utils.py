@@ -114,7 +114,7 @@ def c_states_to_numpy(statelist_c):
 
 
 # Functions
-def python_list_to_c_state(python_list: List[int]) -> ctypes.Structure:
+def python_list_to_c_state(python_list) :
     """
     Convertit une liste Python en structure C State
     
