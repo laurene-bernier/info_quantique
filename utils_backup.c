@@ -158,7 +158,7 @@ State* abs_state(State* state_not_in_absolute_value){ // transform each value of
     State* state_in_absolute_value = malloc(sizeof(State));
     state_in_absolute_value->size = state_not_in_absolute_value->size;
     state_in_absolute_value->occupancy = malloc(state_in_absolute_value->size * sizeof(int)); // need to allocate memory to occupancy // state_not_in_absolute_value->size * ?
-    for(int i = 0; i < state_not_in_absolute_value->size; i++){
+    for(int i = 0; i < (state_not_in_absolute_value->size)-1; i++){                                                                                                                             //
         state_in_absolute_value->occupancy[i] = abs(state_not_in_absolute_value->occupancy[i]);
     }
     return state_in_absolute_value;
@@ -168,8 +168,8 @@ State* abs_state(State* state_not_in_absolute_value){ // transform each value of
 bool any(State* state){
     //state_in_absolute_value->occupancy = malloc(state_not_in_absolute_value->size * sizeof(int));
     if (!state || !state->occupancy) return false;
-    for (int i = 0; i < state->size; i++) {
-        if (state->occupancy[i] != 0) return true;
+    for (int i = 0; i < (state->size)-1; i++) {                                                                                                                 //
+        if (state->occupancy[i] != 0) return true; //pour pas lire un octet en trop
     }
     return false;
 }
@@ -311,7 +311,7 @@ State* annihilation(State* state, int i, char spin){
     State *new_state = malloc(sizeof(State));
     new_state->size = state->size;
     int dim = state->size;
-    new_state->occupancy = malloc(state->size * sizeof(int));
+    new_state->occupancy = malloc(state->size * sizeof(long long));
     if(!any(state)){
         printf("any");
         return make_a_vector_of_zero_state_lengthed(dim);
@@ -328,7 +328,7 @@ State* annihilation(State* state, int i, char spin){
             new_state->occupancy[j] = state->occupancy[j];
         }
         printf("test_3");
-        new_state->occupancy[idx] = 0;
+        new_state->occupancy[idx-1] = 0;                                                                          //
 
         // applique le signe de Fermi
         for (int j = 0; j < state->size; j++) {
@@ -364,7 +364,7 @@ State* creation(State* state, int i, char spin){
     //Calculate the Fermi sign factor
     long long summed_state = 0;
 
-    for(long long i = 0; i < idx; i ++) summed_state += state->occupancy[i];
+    for(long long i = 0; i < idx-1; i ++) summed_state += state->occupancy[i];                                                          //
 
     long long S_i = abs(summed_state);
     int sign_factor = (S_i % 2 == 0) ? 1 : -1;
@@ -372,16 +372,16 @@ State* creation(State* state, int i, char spin){
     State *new_state = malloc(sizeof(State));
     new_state->size = state->size;
     int dim = state->size;
-    new_state->occupancy = malloc(state->size * sizeof(int));
+    new_state->occupancy = malloc(state->size * sizeof(long long));
     if(!any(state)){
         printf("any");
         return make_a_vector_of_zero_state_lengthed(dim);
-    }else if(abs(state->occupancy[idx]) == 1){
+    }else if(abs(state->occupancy[idx-1]) == 1){                                                                                 //
         printf("dim : %d", dim);
         print_state(make_a_vector_of_zero_state_lengthed(dim));
         return make_a_vector_of_zero_state_lengthed(dim);
     }else{
-        for (int j = 0; j < state->size; j++) {
+        for (int j = 0; j < (state->size)-1; j++) {                                                                                 //
             new_state->occupancy[j] = state->occupancy[j];
         }
         new_state->occupancy[idx] = 1;
@@ -499,7 +499,7 @@ Matrix* hubbard_hamiltonian_matrix(int N, Matrix* t_matrix, double U, int dim, i
                     // Hubbard nearest-neighbor hopping
                     int site2_list[2] = {site1-1, site1+1};
                     for(int s = 0; s < 2; s++){
-                        if(0 <= site2_list[s] && site2_list[s] < N){
+                        if(0 <= site2_list[s] && site2_list[s] < N){// --> ?
                             char spins[2] = {'u', 'd'};
                             for (int l = 0; l < 2; l++) {           // bon !!
                                 char spin = spins[l];
@@ -529,7 +529,7 @@ Matrix* hubbard_hamiltonian_matrix(int N, Matrix* t_matrix, double U, int dim, i
                         printf("sortie de la première boucle if");
                     }
                     printf("sortie de la 2eme boucle for");
-                }
+                }                                                   // pas bon
                 printf("sortie de la troisième boucle for");
             }
             printf("j = %d", j);
@@ -597,7 +597,6 @@ void top_hubbard_states_calculation(int temps, int U, Matrix* t_matrix, State* i
 int main(){
     int V = 0;
     int N = 2;
-    //int dim = 2 * N;
     int temps = 4;
     double U = 2;
     int dim = 2 * N;
@@ -620,11 +619,16 @@ int main(){
 
     //State* state_anni;
     //state_anni = creation(&state,  0,  'u');
-    printf("after");
-    Matrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V); // in process
-    printf("avant");
-    print_matrix(H);
+    // printf("after");
+    // Matrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V); // in process
+    // printf("CEESTGAGNEEEEEE");
+    // print_matrix(H);
 
+    State* init_binary_state = malloc(sizeof(State));
+    init_binary_state->size = dim;
+    init_binary_state = malloc(init_binary_state->size * sizeof(State));
+    
+    top_hubbard_states_calculation(temps, U, t_matrix, init_binary_state, nbr_pts);
 
     
 
