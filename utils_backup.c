@@ -619,8 +619,8 @@ int main(){
     
     //print_matrix(H);
 
-    State* a;
-    State* b;
+    State* a = malloc(sizeof(State));
+    State* b = malloc(sizeof(State));
     a->occupancy = malloc(sizeof(long long));
     b->occupancy = malloc(sizeof(long long));
     a->size = b->size;
