@@ -5,18 +5,13 @@
 
 // Structure declaration :
 
-// Structure for t_matrix
-typedef struct {
-    //long long **t_matrix;
-    long long **t_matrix;
-    long long t_dim;
-} t_matrix;
+
 
 // Structure pour la matrice Hamiltonienne
 typedef struct {
     double **matrix;
     long long dim;
-} HamiltonianMatrix;
+} Matrix;
 
 // Structure pour représenter un état quantique
 typedef struct {
@@ -50,19 +45,19 @@ typedef struct {
 
 // Definition of basic useful function :
 // 1) for memory gestion :
-HamiltonianMatrix* allocate_memory_hamiltonian(int dim); // done
-void free_memory_hamiltonian(HamiltonianMatrix* H, int dim); // done
+Matrix* allocate_memory_matrix(int dim); // done
+void free_memory_matrix(Matrix* H, int dim); // done
 void free_combination_list(CombinationList *list);
 void free_state_list(StateList *list);
 
 
 // 2) basic :
-HamiltonianMatrix* initialize_matrix_with_zeros(HamiltonianMatrix* H, int dim); // done
+Matrix* initialize_matrix_with_zeros(int dim); // done
 bool state_equal(State* state1, State* state2); // done
 State* abs_state(State* not_abs_state); // done
 //int power(int minus_one_sign, int S_i); // done
 bool any(State* state); // done
-State* make_a_vector_of_zero_state_lengthed(int dim, State* state); // done
+State* make_a_vector_of_zero_state_lengthed(int dim); // done
 
 
 // 3) for the denombrement in get_hubard_state :
@@ -71,24 +66,24 @@ CombinationList* init_combination_list(int k, int n); // done
 CombinationList* combinations_iterative(int k, int n); // done n>k
 //CombinationList* combinations(int n, int k);
 void print_combinations(CombinationList *list); // utile ?
-StateList* get_hubbard_states(int dim, int N);
+StateList* get_hubbard_states(int N);
 
 
 // Other specific function :
 int number_operator(State* state, int i, char spin); // in process//
-State* annihilation(State* state, int i, char spin, int dim); // done
-State* creation(State* state, int i, char spin, int dim); // done
+State* annihilation(State* state, int i, char spin); // done
+State* creation(State* state, int i, char spin); // done
 int hopping_term_sign_factor(State* state_i, int i, int k, char spin);
 
 // Main function :
 
 // to generate a hamiltonian matrix :
-HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double U, int dim, int V); // in process
+Matrix* hubbard_hamiltonian_matrix(int N, Matrix* t_matrix, double U, int dim, int V); // in process
 //HamiltonianMatrix* hubbard_hamiltonian_matrix(int N, t_matrix* t_matrix, double U, StateList* statelist);
-StateList* get_hubbard_states(int N, int dim); // done
+//StateList* get_hubbard_states(int N); // done
 
 //void top_hubbard_state(int temps, int U, t_matrix* t_matrix, int init_binary_state, int top_n, int fig_width, int fig_heigth, int nbr_pts);
-void top_hubbard_states_calculation(int temps, int U, t_matrix* t_matrix, State* init_binary_state, int top_n, int nbr_pts);
+void top_hubbard_states_calculation(int temps, int U, Matrix* t_matrix, State* init_binary_state, int nbr_pts);
 //State* get_hubbard_states(int N, int *num_states);
 
 
