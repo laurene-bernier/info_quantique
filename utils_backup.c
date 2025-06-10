@@ -621,8 +621,9 @@ int main(){
 
     State* a = malloc(sizeof(State));
     State* b = malloc(sizeof(State));
-    a->occupancy = malloc(sizeof(long long));
-    b->occupancy = malloc(sizeof(long long));
+    a->size = b->size;
+    a->occupancy = malloc(a->size * sizeof(long long));
+    b->occupancy = malloc(b->size * sizeof(long long));
     a->size = b->size;
     bool bolen = state_equal(a, b);
     printf("bool : %d", bolen);
