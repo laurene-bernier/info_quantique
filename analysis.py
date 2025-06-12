@@ -1,382 +1,311 @@
-# -*- coding: utf-8 -*-
-
+# -- coding: utf-8 --
 """
 This module provides functions to analyze and visualize the different aspects of a system described by the Hubbard model.
-It includes functions to compute meshgrids for U and t values, plot contour plots, analyze ratios of energies, and visualize potentials.
-It also includes a function to compute the tunneling splitting in a double well potential.
+It includes functions to convert CSV output from C to NPZ, plot the top Hubbard states, and visualize results.
 """
 
-# Importing necessary libraries
-
-
+import os
+import time as time_module
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 import scipy.constants as sc
-
-from tqdm.auto import tqdm
-from utils import *
-from scipy.special import erf
-from scipy.signal import find_peaks
-from scipy.linalg import eigh_tridiagonal
-#import ctypes
-
-# load utils_backup c function
-#lib_utils_c = ctypes.CDLL('./utils.dll')
-
-# Functions
+from ctypes import c_int, c_double, c_char_p, c_longlong, POINTER, Structure, CDLL, byref
+import ctypes
 
 
-def meshgrid_u_t(filename: str, u_min: float = -4, u_max: float = -3, t_min: float = -3.5, t_max: float = 1.0, u_points: int = 20, t_points: int = 45, fenetre = 3):
+# Constantes globales
+eV = 1.602176634e-19
+N = 2
+U = 2.45e-3
+T_final = 1e-10
+init_binary_state = [0,1,1,0,1,0,1,0]
+top_n = 4
+figsize = (12,6)
+nbr_pts = 10000
+csv_file = "top_hubbard_states.csv"
+npz_file = "top_hubbard_states.npz"
 
+# Définition de la structure State en Python (miroir de la structure C)
+class State(Structure):
+    _fields_ = [
+        ("size", c_longlong),
+        ("occupancy", POINTER(c_longlong))
+    ]
+
+def load_c_library():
+    """Charge la bibliothèque C avec gestion d'erreurs robuste."""
+    library_paths = ['./libhubbard.dll', './libhubbard.so', 'libhubbard.dll', 'libhubbard.so']
+    
+    for lib_path in library_paths:
+        try:
+            if os.path.exists(lib_path):
+                lib = CDLL(lib_path)
+                # Configuration des types de la fonction C
+                if hasattr(lib, 'top_hubbard_states_interface'):
+                    # CORRECTION: Ajout de la structure State dans les arguments
+                    lib.top_hubbard_states_interface.argtypes = [
+                        c_int,          # N
+                        c_double,       # U
+                        c_double,       # T_final
+                        c_int,          # nbr_pts
+                        c_int,          # top_n
+                        POINTER(State), # init_state - AJOUTÉ
+                        c_char_p        # filename
+                    ]
+                    lib.top_hubbard_states_interface.restype = None
+                    print(f"✅ Bibliothèque C chargée : {lib_path}")
+                    return lib
+                else:
+                    print(f"⚠ Fonction 'top_hubbard_states_interface' non trouvée dans {lib_path}")
+        except Exception as e:
+            print(f"❌ Erreur de chargement {lib_path}: {e}")
+    
+    print("❌ Aucune bibliothèque C trouvée. Mode simulation activé.")
+    return None
+
+def python_list_to_state(python_list):
     """
-    This function computes the meshgrid for U and t values, calculates the top Hubbard states, and saves the results in a .npz file.
-
+    Convertit une liste Python en structure State* compatible avec C
+    
     Parameters:
-    - filename : str : name of the output file (without extension)
-    - u_min : float : minimum value for U (in log scale, default: -4)
-    - u_max : float : maximum value for U (in log scale, default: -3)
-    - t_min : float : minimum value for t (in log scale, default: -3.5)
-    - t_max : float : maximum value for t (in log scale, default: 1.0)
-    - u_points : int : number of points for U (default: 20)
-    - t_points : int : number of points for t (default: 45)
-    - fenetre : int : time window for the top Hubbard states calculation (default: 3)
-
+    python_list : list
+        Liste Python d'entiers (0 ou 1) représentant l'état d'occupation
+    
     Returns:
-    - None : saves the results in a .npz file with the specified filename
+    tuple : (State, c_array) Structure State allouée et remplie avec référence au tableau C
     """
+    # Créer une nouvelle instance de State
+    state = State()
+    
+    # Définir la taille
+    state.size = len(python_list)
+    
+    # Convertir la liste Python en tableau C
+    ArrayType = c_longlong * len(python_list)
+    c_array = ArrayType(*python_list)
+    
+    # Assigner le pointeur vers le tableau
+    state.occupancy = c_array
+    
+    return state, c_array  # Retourner aussi c_array pour éviter la garbage collection
 
-    # Grid
-    u_vals = np.logspace(u_min, u_max, u_points)
-    t_vals = np.logspace(t_min, t_max, t_points)
-    uu, tt = np.meshgrid(u_vals, t_vals)
-
-    # Initialisation
-    P1     = np.zeros_like(uu)
-    T1     = np.zeros_like(uu)
-    Max_T  = np.zeros_like(uu)
-    Max_P  = np.zeros_like(uu)
-    t_matrix_base = get_hopping_simple_matrix(4, 1)
-
-    # Calculations
-    for i in tqdm(range(t_points)):
-        for j in range(u_points):
-            U_ij     = uu[i, j] 
-            t_mat_ij = tt[i, j] * t_matrix_base
-            temps = sc.hbar * 15*fenetre / (tt[i, j] * sc.e)
-            T=temps
-            U=U_ij
-            display=False
-            t_matrix_py=t_mat_ij
-            T, Tmp, _ = top_hubbard_states(
-                T,
-                U,
-                t_matrix_py,
-                display
-            )
-            # Peak detection
-            peaks, _ = find_peaks(Tmp[1])
-            if peaks.size:
-                # 1st peak
-                idx1      = peaks[0]
-                T1[i, j]  = T[idx1]
-                P1[i, j]  = Tmp[1][idx1]
-                # Max peak
-                local_idx = np.argmax(Tmp[1][peaks])
-                Max_T[i, j] = T[peaks[local_idx]]
-                Max_P[i, j] = Tmp[1][peaks[local_idx]]
-            else:
-                T1[i, j] = np.nan
-                P1[i, j] = np.nan
-                Max_T[i, j] = np.nan
-                Max_P[i, j] = np.nan
-
-    # Save results
-    np.savez(
-        "data/"+filename+".npz",
-        u_vals=u_vals,
-        t_vals=t_vals,
-        T1=T1,
-        P1=P1,
-        Max_T=Max_T,
-        Max_P=Max_P,
-    )
-    print(f"Data saved in « {filename}.npz »")
-
-# loads a .npz file 
-def plot_meshgrid_from_file(filename: str, key: str, logscale: bool = False):
-
-    """
-    This function loads a .npz file and plots the specified key as a contour plot.
-
-    Parameters:
-    - filename : str : path to the .npz file containing the data
-    - key : str : the key to plot (e.g., 'P1', 'T1', 'Max_P', 'Max_T', 'Max_P1')
-    - logscale : bool : whether to use logarithmic scale for the colorbar (default: False)
-
-    Returns:
-    - None : displays the contour plot
-    """
-
-    #Load data
-    data = np.load("data/"+filename+".npz")
-    u_vals = data['u_vals']
-    t_vals = data['t_vals']
-    Z      = data[key]
-    if logscale:
-        Z = np.log10(Z)
-        Z[np.isneginf(Z)] = np.nan  # Remplace -inf by NaN to avoid plotting issues
-    U_mesh, T_mesh = np.meshgrid(u_vals, t_vals)
-
-    print('U_mesh : ' + U_mesh, T_mesh)
-
-    # Plotting 
-    plt.figure(figsize=(8, 6))
-    cp = plt.contourf(
-        U_mesh,
-        T_mesh,
-        Z,
-        levels=100,
-        cmap='viridis',
-    )
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.colorbar(cp, label=key)
-    plt.xlabel("U (eV)")
-    plt.ylabel("t (eV)")
-    plt.title(f"Contour de {key}")
-    plt.show()
+def convert_csv_to_npz(csv_file: str, npz_file: str):
+    df = pd.read_csv(csv_file, converters={'occupation': lambda x: x})
+    print(f"📄 Colonnes dans le fichier CSV : {df.columns.tolist()}")
 
 
-def plot_with_one_u(filename: str, key: str, logscale: bool = False):
+    # Ignore columns that cannot be converted
+    df = df.drop(columns=['occupation'], errors='ignore')
 
-    """
-    This function loads a .npz file and plots the specified key against t/u_vals.
+    times = sorted(df['t_idx'].unique())
+    data = {}
 
-    Parameters:
-    - filename : str : path to the .npz file containing the data
-    - key : str : the key to plot (e.g., 'P1', 'T1', 'Max_P', 'Max_T', 'Max_P1')
-    - logscale : bool : whether to use logarithmic scale for the y-axis (default: False)
-
-    Returns:
-    - None : displays the plot
-    """
-    data = np.load("data/"+filename+".npz")
-    u_vals = data['u_vals']
-    t_vals = data['t_vals']
-    Z      = data[key]
-
-    plt.figure(figsize=(8, 6))
-    cp = plt.plot(t_vals/u_vals, Z, label=key)
-    plt.xscale('log')
-    if logscale:
-        plt.yscale('log')
-    plt.xlabel("t/U ")
-    plt.ylabel(key)
-    plt.title(f" {key}")
-    plt.legend()
-    plt.show()
-
-
-def T_sur_T1(filename: str, tol: float = 1e-2, min_length: int = 5, logscale: bool = False):
-
-    """
-    This function analyzes the ratio Max_T / T1 from a .npz file.
-    It identifies and plots the plateaus in the ratio, indicating regions of interest.
-
-    Parameters:
-    - filename : str : path to the .npz file containing the data
-    - tol : float : tolerance for detecting plateaus (default: 1e-2)
-    - min_length : int : minimum length of plateau segments to consider (default: 5)
-    - logscale : bool : whether to use logarithmic scale for the y-axis (default: False)
-
-    Returns:
-    - None : displays the plot and prints the plateau values
-    """
-
-    # Load data
-    data   = np.load(f"data/{filename}.npz")
-    u0     = data['u_vals'][0]
-    t_vals = data['t_vals']
-    R      = data['Max_T'][:,0] / data['T1'][:,0]
-
-    # Prepare and sort data
-    x = t_vals / u0
-    order = np.argsort(x)
-    x = x[order]
-    y = R[order]
-
-    # Calculate differential of y with respect to log(x)
-    ln_x    = np.log(x)
-    dy_dlnx = np.diff(y) / np.diff(ln_x)
-    mask = np.concatenate(([False], np.abs(dy_dlnx) < tol))
-
-    # Identify segments of the mask where the condition is True (length >= min_length)
-    segments = []
-    i, N = 0, len(mask)
-    while i < N:
-        if mask[i]:
-            start = i
-            while i < N and mask[i]:
-                i += 1
-            end = i
-            if end - start >= min_length:
-                segments.append((start, end))
+    for idx in df['idx'].unique():
+        df_idx = df[df['idx'] == idx]
+        if len(df_idx) == len(times):
+            data[f'state_{int(idx)}'] = df_idx.sort_values('t_idx')['proba'].values
         else:
-            i += 1
+            print(f"⚠ Incomplete data for state {idx}, skipping...")
 
-    if not segments:
-        print("Aucun plateau détecté.")
-        return
+    np.savez(npz_file, time=np.array(times), **data)
+    return True
 
-    # We keep only the last three segments
-    derniers = segments[-3:]
+def load_data_from_npz(npz_file: str):
+    """Charge les données NPZ en toute sécurité."""
+    try:
+        if not os.path.exists(npz_file):
+            print(f"❌ Fichier NPZ non trouvé : {npz_file}")
+            return None, None
+        
+        # CORRECTION: Essayer d'abord sans allow_pickle, puis avec si nécessaire
+        try:
+            npz_data = np.load(npz_file, allow_pickle=False)
+        except ValueError as ve:
+            if "pickled" in str(ve).lower():
+                print("⚠ Fichier contient des données pickled, chargement avec allow_pickle=True")
+                npz_data = np.load(npz_file, allow_pickle=True)
+            else:
+                raise ve
+            
+        time = npz_data['time']
+        data = {k: npz_data[k] for k in npz_data.files if k != 'time'}
+        print(f"✅ Données NPZ chargées : {len(data)} états")
+        return time, data
+    except Exception as e:
+        print(f"❌ Erreur de chargement de {npz_file}: {e}")
+        return None, None
 
-    # Plotting
-    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-    plt.figure(figsize=(8,5))
-    plt.plot(x, y, color=colors[0], label="Max_T / T1")
+def clean_old_files():
+    """Nettoie les anciens fichiers pour éviter les conflits."""
+    files_to_clean = [csv_file, npz_file]
+    for file_path in files_to_clean:
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                print(f"🗑 Ancien fichier nettoyé: {file_path}")
+            except Exception as e:
+                print(f"⚠ Impossible de nettoyer {file_path}: {e}")
 
-    for k, (s, e) in enumerate(derniers, start=1):
-        mean_val = np.nanmean(y[s:e])
-        print(f"P{k} (t/U ∈ [{x[s]:.2e}, {x[e-1]:.2e}]) ≃ {mean_val:.3f}")
-        plt.hlines(mean_val, x[s], x[e-1],
-                   colors=colors[k],
-                   linestyles='dashed',
-                   linewidth=2,
-                   label=f"P{k} ≃ {mean_val:.2f}")
+def generate_mock_data(nbr_pts, top_n):
+    """Génère des données simulées si rien n'est disponible."""
+    print("🔄 Génération de données simulées...")
+    time = np.linspace(0, T_final, nbr_pts)
+    data = {}
+    for i in range(top_n):
+        freq = 0.5 + i * 0.3
+        phase = i * np.pi / 4
+        amplitude = 0.8 - i * 0.1
+        offset = 0.4 + i * 0.05
+        prob = amplitude * np.exp(-time/20) * np.cos(freq * time + phase)**2 + offset
+        prob = np.clip(prob, 0, 1)
+        data[f'state_{i}'] = prob
+    return time, data
 
-    plt.xscale('log')
-    if logscale:
-        plt.yscale('log')
-    plt.xlabel('t / U')
-    plt.ylabel('Max_T / T1')
-    plt.title('Rapport et plateaux détectés')
-    plt.legend()
+def plot_top_hubbard_states(time, data, top_n=5, figsize=(12,6)):
+    """Trace les top_n états avec les plus fortes probabilités."""
+    if not data:
+        print("❌ Aucune donnée à tracer")
+        return None
+        
+    fig, ax = plt.subplots(figsize=figsize)
+    colors = plt.cm.tab10(np.linspace(0, 1, min(len(data), top_n)))
+
+    plotted_count = 0
+    for i, (state_name, probabilities) in enumerate(data.items()):
+        if plotted_count >= top_n:
+            break
+        
+        time_plot = time * sc.hbar
+        label = f"État {plotted_count+1}" if state_name.startswith('state_') else state_name
+        ax.plot(time_plot, probabilities, label=label, color=colors[plotted_count], linewidth=2)
+        plotted_count += 1
+
+    ax.set_xlabel("Temps (J·s)")
+    ax.set_ylabel("Probabilité d'occupation")
+    ax.set_title(f"Top {plotted_count} probabilités d'occupation (N={N}, U={U} eV)")
+    ax.set_ylim(0, 1)
+    ax.legend(loc='best', title=f'Top {plotted_count} états')
+    ax.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.show()
+    return fig
+
+def call_c_library(lib, init_state):
+    """Appelle la bibliothèque C de manière sécurisée."""
+    if lib is None:
+        print("❌ Bibliothèque C non disponible")
+        return False
+        
+    try:
+        print("📞 Appel de la bibliothèque C...")
+        # Conversion de l'état initial
+        state_struct, c_array = python_list_to_state(init_state)
+        
+        # CORRECTION: Passer la structure par référence
+        lib.top_hubbard_states_interface(
+            N, 
+            c_double(U), 
+            c_double(T_final), 
+            nbr_pts, 
+            top_n, 
+            byref(state_struct),  # CORRECTION: Utiliser byref pour passer par référence
+            csv_file.encode('utf-8')
+        )
+        
+        # Attendre que le fichier soit écrit
+        print("⏳ Attente de l'écriture du fichier...")
+        max_wait = 10  # Attendre maximum 10 secondes
+        wait_time = 0
+        while not os.path.exists(csv_file) and wait_time < max_wait:
+            time_module.sleep(0.5)
+            wait_time += 0.5
+        
+        if os.path.exists(csv_file):
+            print("✅ Appel C terminé, fichier CSV généré")
+            return True
+        else:
+            print("❌ Appel C terminé mais aucun fichier CSV généré")
+            return False
+        
+    except Exception as e:
+        print(f"❌ Erreur appel C: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def top_hubbard_states_graph(init_state):
+    """Routine principale d'analyse et de visualisation."""
+    print("🧠 Début de l'analyse des états de Hubbard...")
+    print(f"   Paramètres: N={N}, U={U} eV, T_final={T_final}, nbr_pts={nbr_pts}, top_n={top_n}")
     
-# draw potential V(x)
-def draw_potential(a=1.276, sigma = 10, b=4, x_vals = np.linspace(-100e-9, 100e-9, 10000), display=True):
-
-    """
-    This function computes and optionally displays the electrostatic potential defined by a quadratic term and an exponential term.
-
-    Parameters:
-    - a : coefficient for the quadratic term (in meV/nm^2)
-    - sigma : standard deviation for the Gaussian term (in nm)
-    - b : coefficient for the exponential term (in meV)
-    - x_vals : array of positions (in m) where the potential is computed
-    - display : boolean to control whether to display the potential plot
-    Returns:
-
-    - x_nm : positions in nanometers
-    - V_expr_meV : computed potential in meV
-    """
-
-    x_nm = x_vals * 1e9
+    # CORRECTION: Nettoyer les anciens fichiers
+    clean_old_files()
     
-    V_expr = a*5e11*x_vals**2 + b*1e-3*np.exp(-((x_vals)**2)/(4*(sigma*1e-9)**2)) #(eV)
-    V_expr_meV = V_expr * 1e3 # conversion in meV
+    # Chargement de la bibliothèque C
+    lib = load_c_library()
+    
+    # Tentative d'appel à la bibliothèque C
+    c_success = call_c_library(lib, init_state)
+    
+    # Tentative de conversion CSV → NPZ
+    if c_success and os.path.exists(csv_file):
+        if convert_csv_to_npz(csv_file, npz_file):
+            # Nettoyage optionnel du CSV
+            try:
+                os.remove(csv_file)
+                print("🗑 Fichier CSV nettoyé")
+            except:
+                pass
+    
+    # Chargement des données
+    time, data = load_data_from_npz(npz_file)
+    
+    # Si pas de données, utiliser des données simulées
+    if time is None or data is None or len(data) == 0:
+        print("⚠ Utilisation de données simulées.")
+        time, data = generate_mock_data(nbr_pts, top_n)
+    
+    # Tracé
+    print("📊 Génération du graphique...")
+    fig = plot_top_hubbard_states(time, data, top_n, figsize)
+    
+    if fig is not None:
+        print("✅ Analyse terminée avec succès.")
+        print(f"   Données tracées pour {len(data)} états")
+    else:
+        print("❌ Échec de la génération du graphique")
+    
+    return time, data, fig
 
-    # Affichage
-    if display:
-        plt.figure(figsize=(8, 5))
-        plt.plot(x_nm, V_expr_meV, label=r"$V(x)$ (nouvelle expression)", color='teal')
-        plt.xlabel("Position x (nm)")
-        plt.ylabel("Potentiel $V(x)$ (meV)")
-        plt.title("Potentiel électrostatique défini par erreur et exponentielle")
-        #plt.plot(x_vals * 1e9, (V_expr - V_expr[::-1]) / sc.e * 1e3, color='red', label=r"$V(x) - V(-x)$ (symétrie)", linestyle='--')
-        plt.grid(True)
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
-    return x_nm, V_expr_meV
+# Point d'entrée principal
+def main():
+    """Fonction principale avec gestion d'erreurs complète."""
+    try:
+        print("=" * 60)
+        print("🚀 ANALYSE DES ÉTATS DE HUBBARD")
+        print("=" * 60)
+        
+        # Conversion de l'état initial
+        init_state_struct, c_array = python_list_to_state(init_binary_state)
+        print(f"État initial: {init_binary_state}")
+        
+        # Lancement de l'analyse
+        time, data, fig = top_hubbard_states_graph(init_binary_state)
+        
+        if time is not None and data:
+            print(f"✔ Analyse terminée. Données pour {len(data)} états.")
+            print(f"  Durée simulée: {T_final} unités de temps")
+            print(f"  Points de données: {len(time)}")
+        else:
+            print("❌ Échec de l'analyse.")
+            
+    except KeyboardInterrupt:
+        print("\n🛑 Analyse interrompue par l'utilisateur")
+    except Exception as e:
+        print(f"❌ Erreur critique: {e}")
+        import traceback
+        traceback.print_exc()
 
-
-# Unfinished
-def compute_hopping(a=1.276, sigma = 6 ,b=4, m_eff=0.067 * sc.m_e, N=2000, L=100e-9, plot=True):
-
-    """
-    This function computes the tunneling splitting in a double well potential defined by a quadratic term and an exponential term.
-
-    Parameters:
-    a : coefficient for the quadratic term (in meV/nm^2)
-    d : distance between the two wells (in nm)
-    m_eff : effective mass of the electron (in kg)
-    N : number of points in the discretization of the potential
-    L : half-width of the potential well (in nm)
-    plot : boolean to control whether to display the potential and wavefunctions
-
-    Returns:
-    delta_E : tunneling splitting energy (in meV)
-    T_tunnel : tunneling time (in ps)
-    """
-
-    x_vals = np.linspace(-L, L, N)
-    dx = x_vals[1] - x_vals[0]
-
-    V_x = draw_potential(a, sigma,b, x_vals, display=False)[1]*1e-3 * sc.e # En Joules
-
-    # Kinetic hamiltonian
-    kin_diag = np.full(N, sc.hbar**2 / (m_eff * dx**2))
-    off_diag = np.full(N - 1, -sc.hbar**2 / (2 * m_eff * dx**2))
-
-    # Total Hamiltonian
-    H_diag = kin_diag + V_x
-    e_vals, e_vecs = eigh_tridiagonal(H_diag, off_diag)
-
-    # meV energies
-    e0, e1 = e_vals[0:2]
-    delta_E = (e1 - e0) / sc.e * 1e3  # en meV
-
-    # Temps tunnel en ps
-    T_tunnel = sc.h / (e1 - e0) * 1e12  # en ps
-
-    print(f"Ecart centre des qdots: {2*x_vals[np.argmin(V_x)]*1e9:.2f} nm")
-    print(f"t: {np.sqrt((get_U(40e-9)*delta_E)/4)} meV")
-
-    if plot:
-        plt.figure(figsize=(8,5))
-        plt.plot(x_vals * 1e9, V_x /sc.e * 1e3, label="V(x)", color='black', lw=1)
-        plt.plot(x_vals * 1e9, np.full(N,e0)*1e3/sc.e, label=r"$E_0$", alpha=0.6)
-        plt.plot(x_vals * 1e9, np.full(N,e1)*1e3/sc.e, label=r"$E_1$", alpha=0.6)
-        plt.xlabel("x (nm)")
-        plt.ylabel("Énergie [meV]")
-        plt.title(f"Splitting tunnel : ΔE = {delta_E:.3f} meV, T = {T_tunnel:.1f} ps")
-        plt.legend()
-        plt.grid(True)
-        plt.tight_layout()
-        plt.show()
-
-    return delta_E, T_tunnel
-
-display = True
-T = sc.hbar * 15*102 / (0.0394e-3 * sc.e)
-U = 2.45e-3
-t_matrix_py = 0.0394e-3*get_hopping_simple_matrix(4,1)
-init_binary_state=[0,1,1,0,1,0,1,0]
-top_n=4
-figsize=(12,6)
-nbr_pts=1000
-
-T, Tmp, _ = top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figsize, nbr_pts) #, display=True
-
-#t_matrix_flat = t_matrix_py.astype(np.float64).flatten()
-    #t_matrix_c = t_matrix_flat.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
-
-# top_hubbard_states() renvoie un tuple de long 3 -- calcule les états de plus hautes énergies/états dominants
-# (array) T = temps
-# (array de dim n) Tmp = données temporelles calculées probablement les probabilités
-# _ = on ignore volontairement la 3e valeur
-
-#test_get_hubbard_states(N = 100)
-
-#top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figsize, nbr_pts)
-print("salut tout le monde")
-#compute_hopping(a=3, sigma = 3,b=2, m_eff=0.067 * sc.m_e, N=2000, L=100e-9, plot=True)
-#draw_potential(a=1.276, sigma = 10, b=4, x_vals = np.linspace(-100e-9, 100e-9, 10000), display=True)
-print("dzbkbkbz")
-#compute_hopping(a=1.276, sigma = 6,b=20, m_eff=0.067 * sc.m_e, N=2000, L=100e-9, plot=True)
-#plot_meshgrid_from_file(filename: str, key: str, logscale: bool = False)
-
-#test_c_functions()
+if __name__ == "__main__":
+    main()

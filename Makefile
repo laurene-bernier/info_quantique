@@ -2,8 +2,9 @@
 all: clean utils_backup.dll
 
 # linkage :
+#gcc -shared -o utils_backup.dll utils_backup.o
 utils_backup.dll: utils_backup.o
-	gcc -shared -o utils_backup.dll utils_backup.o
+	gcc -shared -fPIC -o libhubbard.dll utils_backup.c -lm
 
 # compilation :
 utils_backup.o: utils_backup.c

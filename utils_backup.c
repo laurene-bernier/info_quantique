@@ -1,639 +1,607 @@
+#include "utils_backup.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "utils_backup.h"
+#include <complex.h>
+#define MAX_TERMS 100
+#define TOL 1e-12
 
-/**
-    * @brief Returns the Hubbard Hamiltonian matrix for a system of N sites.
+static const double eV = 1.602176634e-19;
 
-    Parameters:
-    * @param N : int, number of sites
-    * @param t : array, hopping integral matrix (symmetric NxN matrix), t[i][j] represents the hopping amplitude between sites i and j
-    * @param U : float, on-site interaction strength
-    * @param V : float, nearest-neighbor interaction strength (default is 0)
-    * @param states : array, optional, list of states to consider (if None, all possible Hubbard states are generated)
-
-    * @return array, Hubbard Hamiltonian matrix in the basis of all possible states
-*/
-
-// temporaire :
-//int N;
-//int dim;
-//double U;
-//int V = 0;
-double eV = 1.602176634e-19;
-//char spin;
-
-
-// Note à moi-mème : qq recherches sur des manières d'optimiser son code en c/conseils trouvés sur internet
-// -
-// -
-
-// Fonction d'affichage d'un seul état
-void print_state(State *state) { //const
-    printf("État (taille = %lld) : ", state->size);
-    for (long long i = 0; i < state->size; i++) {
-        // Affiche l’occupation du site i (entier long long)
-        printf("%lld ", state->occupancy[i]);
+void print_state(const State *s) {
+    printf("État (taille = %lld) : ", s->size);
+    for (long long i = 0; i < s->size; i++) {
+        printf("%lld ", s->occupancy[i]);
     }
     printf("\n");
 }
 
-// Fonction d'affichage d'une liste d'états
-void print_state_list(const StateList *list) {
-    printf("Liste d'états : (nombre = %lld)\n", list->count);
-    for (long long i = 0; i < list->count; i++) {
-        printf("État #%lld : ", i);
-        print_state(&list->states[i]);
+Matrix* allocate_memory_matrix(long long dim) {
+    Matrix *H = malloc(sizeof *H);
+    H->dim    = dim;
+    H->matrix = malloc(dim * sizeof *H->matrix);
+    for (long long i = 0; i < dim; i++) {
+        H->matrix[i] = calloc(dim, sizeof *H->matrix[i]);
     }
+    return H;
 }
 
-void print_matrix(Matrix *H) {
-    for (long long i = 0; i < H->dim; i++) {
-        for (long long j = 0; j < H->dim; j++) {
-            printf("%10.4f ", H->matrix[i][j]);
+void free_memory_matrix(Matrix *H) {
+    if (!H) return;
+    for (long long i = 0; i < H->dim; i++)
+        free(H->matrix[i]);
+    free(H->matrix);
+    free(H);
+}
+
+
+StateComplexe* basis_vector(int dim, int idx) {
+    StateComplexe* sc = malloc(sizeof(StateComplexe));
+    sc->size = dim;
+    sc->vector = calloc(dim, sizeof(cplx));
+    sc->vector[idx] = 1.0 + 0.0*I;
+    return sc;
+}
+
+static long long binomial_coefficient(int n, int k) {
+    if (n < 0 || k < 0) return -1;
+    if (k > n) return 0;
+    if (k == 0 || k == n) return 1;
+    if (k > n - k) k = n - k;
+    long long res = 1;
+    for (int i = 1; i <= k; i++)
+        res = res * (n - k + i) / i;
+    return res;
+}
+
+CombinationList* init_combination_list(int k, int n) {
+    CombinationList *L = malloc(sizeof *L);
+    L->count     = 0;
+    L->max_count = binomial_coefficient(n, k);
+    L->combinations = malloc(L->max_count * sizeof *L->combinations);
+    for (long long i = 0; i < L->max_count; i++) {
+        L->combinations[i].size    = k;
+        L->combinations[i].indices = malloc(k * sizeof *L->combinations[i].indices);
+    }
+    return L;
+}
+
+CombinationList* combinations_iterative(int k, int n) {
+    if (k > n || k < 0) return NULL;
+    CombinationList *L = init_combination_list(k, n);
+    long long *comb = malloc(k * sizeof *comb);
+    for (int i = 0; i < k; i++) comb[i] = i;
+    do {
+        memcpy(L->combinations[L->count].indices, comb, k * sizeof *comb);
+        L->count++;
+        int pos = k - 1;
+        while (pos >= 0 && comb[pos] == n - k + pos) pos--;
+        if (pos < 0) break;
+        comb[pos]++;
+        for (int j = pos + 1; j < k; j++)
+            comb[j] = comb[j-1] + 1;
+    } while (1);
+    free(comb);
+    return L;
+}
+
+void free_combination_list(CombinationList *L) {
+    if (!L) return;
+    for (long long i = 0; i < L->max_count; i++)
+        free(L->combinations[i].indices);
+    free(L->combinations);
+    free(L);
+}
+
+bool any(const State *s) {
+    for (long long i = 0; i < s->size; i++)
+        if (s->occupancy[i] != 0) return 1;
+    return 0;
+}
+
+State* make_zero_state(long long dim) {
+    State *Z = malloc(sizeof *Z);
+    Z->size      = dim;
+    Z->occupancy = calloc(dim, sizeof *Z->occupancy);
+    return Z;
+}
+
+State* abs_state(const State *src) {
+    State *A = malloc(sizeof *A);
+    A->size      = src->size;
+    A->occupancy = malloc(src->size * sizeof *A->occupancy);
+    for (long long i = 0; i < src->size; i++)
+        A->occupancy[i] = llabs(src->occupancy[i]);
+    return A;
+}
+
+bool state_equal(const State *a, const State *b) {
+    if (a->size != b->size) return 0;
+    for (long long i = 0; i < a->size; i++)
+        if (a->occupancy[i] != b->occupancy[i]) return 0;
+    return 1;
+}
+
+int number_operator(const State *s, int site, char spin) {
+    return spin=='u'
+           ?  (int)s->occupancy[2*site]
+           :  (int)s->occupancy[2*site+1];
+}
+
+State* annihilation(const State *st, int site, char spin) {
+    long long idx = (spin=='u' ? 2*site : 2*site+1);
+    long long sum = 0;
+    for (long long i = 0; i < idx; i++) sum += st->occupancy[i];
+    int sign = (sum % 2 == 0) ? +1 : -1;
+
+    if (!any(st) || st->occupancy[idx] == 0)
+        return make_zero_state(st->size);
+
+    State *out = malloc(sizeof *out);
+    out->size      = st->size;
+    out->occupancy = malloc(st->size * sizeof *out->occupancy);
+    memcpy(out->occupancy, st->occupancy, st->size * sizeof *out->occupancy);
+    out->occupancy[idx] = 0;
+    for (long long i = 0; i < out->size; i++)
+        out->occupancy[i] *= sign;
+    return out;
+}
+
+State* creation(const State *st, int site, char spin) {
+    long long idx = (spin=='u' ? 2*site : 2*site+1);
+    long long sum = 0;
+    for (long long i = 0; i < idx; i++) sum += st->occupancy[i];
+    int sign = (sum % 2 == 0) ? +1 : -1;
+
+    if (!any(st) || st->occupancy[idx] == 1)
+        return make_zero_state(st->size);
+
+    State *out = malloc(sizeof *out);
+    out->size      = st->size;
+    out->occupancy = malloc(st->size * sizeof *out->occupancy);
+    memcpy(out->occupancy, st->occupancy, st->size * sizeof *out->occupancy);
+    out->occupancy[idx] = 1;
+    for (long long i = 0; i < out->size; i++)
+        out->occupancy[i] *= sign;
+    return out;
+}
+
+double complex hermitian_dot(const double complex* a, const double complex* b, int size) {
+    double complex result = 0.0 + 0.0 * I;
+    for (int i = 0; i < size; i++)
+        result += conj(a[i]) * b[i];
+    return result;
+}
+
+int hbar = 1;
+
+ComplexeMatrix* allocate_complex_matrix(int dim) {
+    ComplexeMatrix* m = malloc(sizeof(ComplexeMatrix));
+    m->dim = dim;
+    m->compMatrix = malloc(dim * sizeof(cplx*));
+    for (int i = 0; i < dim; i++)
+        m->compMatrix[i] = calloc(dim, sizeof(cplx));
+    return m;
+}
+
+ComplexeMatrix* mat_identity(int dim) {
+    ComplexeMatrix* out = allocate_complex_matrix(dim);
+    for (int i = 0; i < out->dim; i++)
+        for (int j = 0; j < out->dim; j++)
+            out->compMatrix[i][j] = (i == j) ? 1.0 + 0.0*I : 0.0 + 0.0*I;
+    return out;
+}
+
+ComplexeMatrix* mat_add(ComplexeMatrix* a, ComplexeMatrix* b) {
+    if (!a || !b || a->dim != b->dim) return NULL;
+    int dim = a->dim;
+    ComplexeMatrix* out = allocate_complex_matrix(dim);
+    for (int i = 0; i < dim; i++)
+        for (int j = 0; j < dim; j++)
+            out->compMatrix[i][j] = a->compMatrix[i][j] + b->compMatrix[i][j];
+    return out;
+}
+
+ComplexeMatrix* mat_mul(ComplexeMatrix* a, ComplexeMatrix* b) {
+    if (!a || !b || a->dim != b->dim) return NULL;
+    int dim = a->dim;
+    ComplexeMatrix* out = allocate_complex_matrix(dim);
+    for (int i = 0; i < dim; i++)
+        for (int j = 0; j < dim; j++)
+            for (int k = 0; k < dim; k++)
+                out->compMatrix[i][j] += a->compMatrix[i][k] * b->compMatrix[k][j];
+    return out;
+}
+
+ComplexeMatrix* mat_scalar_div(ComplexeMatrix* m, double scalar) {
+    for (int i = 0; i < m->dim; i++)
+        for (int j = 0; j < m->dim; j++)
+            m->compMatrix[i][j] /= scalar;
+    return m;
+}
+
+void free_complex_matrix(ComplexeMatrix* matrix) {
+    if (!matrix) return;
+    for (int i = 0; i < matrix->dim; i++)
+        free(matrix->compMatrix[i]);
+    free(matrix->compMatrix);
+    free(matrix);
+}
+
+void generate_time_array(double T_final, int nbr_pts, double hbar, double* T_array) {
+    double dt = T_final / (nbr_pts - 1);
+    for (int i = 0; i < nbr_pts; i++)
+        T_array[i] = (i * dt) / hbar;
+}
+
+ComplexeMatrix* matrix_exponential(ComplexeMatrix* A) {
+    if (!A) return NULL;
+    int dim = A->dim;
+    ComplexeMatrix* result = mat_identity(dim);
+    ComplexeMatrix* term = mat_identity(dim);
+    ComplexeMatrix* temp = NULL;
+
+    for (int k = 1; k < MAX_TERMS; k++) {
+        temp = mat_mul(term, A);
+        free_complex_matrix(term);
+        term = temp;
+        mat_scalar_div(term, k);
+
+        ComplexeMatrix* next_result = mat_add(result, term);
+        free_complex_matrix(result);
+        result = next_result;
+
+        double norm = 0.0;
+        for (int i = 0; i < dim; i++)
+            for (int j = 0; j < dim; j++)
+                norm += cabs(term->compMatrix[i][j]);
+        if (norm < TOL) break;
+    }
+    free_complex_matrix(term);
+    return result;
+}
+
+ComplexeMatrix* time_evol_operator(Matrix* H, double t) {
+    ComplexeMatrix* A = malloc(sizeof(ComplexeMatrix));
+    A->dim = H->dim;
+    A->compMatrix = malloc(A->dim * sizeof(cplx*));
+    for (int i = 0; i < A->dim; i++)
+        A->compMatrix[i] = malloc(A->dim * sizeof(cplx));
+    for (int i = 0; i < A->dim; i++)
+        for (int j = 0; j < A->dim; j++)
+            A->compMatrix[i][j] = -I * H->matrix[i][j] * t / hbar;
+    ComplexeMatrix* U = matrix_exponential(A);
+    free_complex_matrix(A);
+    return U;
+}
+
+StateListComplexe* time_evol_state(Matrix* H, double* T_array, int nbr_pts, StateComplexe* u) {
+    StateListComplexe* result_array = malloc(sizeof(StateListComplexe));
+    result_array->count = nbr_pts;
+    result_array->complexe_state = malloc(nbr_pts * sizeof(StateComplexe));
+    for (int i = 0; i < nbr_pts; i++) {
+        result_array->complexe_state[i].size = u->size;
+        result_array->complexe_state[i].vector = calloc(u->size, sizeof(cplx));
+    }
+    ComplexeMatrix* U;
+    for (int t_idx = 0; t_idx < nbr_pts; t_idx++) {
+        double t = T_array[t_idx];
+        U = time_evol_operator(H, t);
+        for (int i = 0; i < U->dim; i++)
+            for (int j = 0; j < U->dim; j++)
+                result_array->complexe_state[t_idx].vector[i] += U->compMatrix[i][j] * u->vector[j];
+        free_complex_matrix(U);
+    }
+    return result_array;
+}
+
+StateList* get_hubbard_states(int N) {
+    long long dim = 2LL * N;
+    CombinationList *C = combinations_iterative(N, dim);
+    if (!C) return NULL;
+    StateList *L = malloc(sizeof *L);
+    L->count  = C->count;
+    L->states = malloc(L->count * sizeof *L->states);
+    for (long long i = 0; i < C->count; i++) {
+        L->states[i].size      = dim;
+        L->states[i].occupancy = calloc(dim, sizeof *L->states[i].occupancy);
+        for (long long k = 0; k < C->combinations[i].size; k++) {
+            long long idx = C->combinations[i].indices[k];
+            L->states[i].occupancy[idx] = 1;
+        }
+    }
+    free_combination_list(C);
+    return L;
+}
+
+void free_state_list(StateList *L) {
+    if (!L) return;
+    for (long long i = 0; i < L->count; i++)
+        free(L->states[i].occupancy);
+    free(L->states);
+    free(L);
+}
+
+Matrix* initialize_matrix_with_zeros(long long dim) {
+    return allocate_memory_matrix(dim);
+}
+
+void print_matrix(const Matrix *M) {
+    for (long long i = 0; i < M->dim; i++) {
+        for (long long j = 0; j < M->dim; j++) {
+            printf("%10.4f ", M->matrix[i][j]);
         }
         printf("\n");
     }
 }
 
-Matrix* create_tridiagonal_matrix(int N) {
-    // Allocation d'un tableau de pointeurs
-    Matrix* matrix = malloc(N * sizeof(Matrix));
-    if (!matrix) {
-        perror("malloc failed");
+int hopping_term_sign_factor(const State *state_i, int i, int k, char spin) {
+    int idx_i = (spin=='u' ? 2*i   : 2*i+1);
+    int idx_k = (spin=='u' ? 2*k   : 2*k+1);
+    int min_idx = idx_i < idx_k ? idx_i : idx_k;
+    int max_idx = idx_i < idx_k ? idx_k : idx_i;
+    long long S = 0;
+    for (int j = min_idx+1; j < max_idx; j++)
+        S += state_i->occupancy[j];
+    return (S % 2) ? -1 : +1;
+}
+
+Matrix* create_tridiagonal_matrix(long long N) {
+    Matrix *M = allocate_memory_matrix(N);
+    if (!M) {
+        perror("Erreur d’allocation");
         exit(EXIT_FAILURE);
     }
-    matrix->dim = N;
-    matrix->matrix = malloc(matrix->dim * sizeof(double));
-    for (int i = 0; i < N; i++) {
-        matrix->matrix[i] = calloc(N, sizeof(double));  // Initialise à 0
+    for (long long i = 0; i < N; i++) {
+        if (i > 0)     M->matrix[i][i-1] = 1.0;
+        if (i < N-1)   M->matrix[i][i+1] = 1.0;
     }
-    // Remplissage de la matrice tridiagonale
-    for (int i = 0; i < N; i++) {
-        if (i > 0)
-            matrix->matrix[i][i - 1] = 1.0; // diagonale inférieure
-        if (i < N - 1)
-            matrix->matrix[i][i + 1] = 1.0; // diagonale supérieure
-    }
-    return matrix;
+    return M;
 }
 
-
-// Definition of basic useful function :
-// 1) for memory gestion :
-Matrix* allocate_memory_matrix(int dim) { //function to allocate memory for a dynamic array of the Hamiltonian matrix :
-    Matrix *H = malloc(sizeof(Matrix)); // = new Matrix;
-    H->dim = dim;
-    H->matrix = malloc(dim * sizeof(double*));
-    for(int i = 0; i <dim; i++){
-        H->matrix[i] = calloc(dim, sizeof(double));
+Matrix* hubbard_hamiltonian_matrix(int N, Matrix* t_matrix, double U){
+    StateList* statelist = get_hubbard_states(N);
+    if (!statelist) {
+        free_state_list(statelist);
+        return NULL;
     }
+    int hilbert_dim = (int)(statelist->count);
+    Matrix* H = initialize_matrix_with_zeros(hilbert_dim);
+    for(int i = 0; i < hilbert_dim; i++){
+        State* state_i = &statelist->states[i];
+        for(int j = 0; j < hilbert_dim; j++){
+            State* state_j = &statelist->states[j];
+            if(i == j){
+                for (int site =0; site < N; site ++){
+                    int n_up = number_operator(state_i, site, 'u');
+                    int n_down = number_operator(state_i, site, 'd');
+                    H->matrix[i][j] += U * n_up * n_down;
+                }
+            } else{
+                for(int site1 = 0; site1 < N; site1++){
+                    char spins[2] = {'u', 'd'};
+                    for (int l = 0; l < 2; l++) {
+                        char spin = spins[l];
+                        State* temp = annihilation(state_i, site1, spin);
+                        if(any(temp)){
+                            int site2_list[2] = {site1-1, site1+1};
+                            for(int s = 0; s < 2; s++){
+                                if(0 <= site2_list[s] && site2_list[s] < N){
+                                    int site2 = site2_list[s];
+                                    State* final = creation(temp, site2, spin);
+                                    if(state_equal(abs_state(final), state_j)){
+                                        int sign = hopping_term_sign_factor(state_i, site1, site2, spin);
+                                        H->matrix[i][j] -= t_matrix->matrix[site1][site2] * sign;
+                                    }
+                                    free(final->occupancy);
+                                    free(final);
+                                }
+                            }
+                        }
+                        free(temp->occupancy);
+                        free(temp);
+                    }
+                }
+            }
+        }
+    }
+    free_state_list(statelist);
     return H;
 }
 
-void free_memory_matrix(Matrix* H, int dim) { //function to free memory of the Hamiltonian matrix :
-    if(H){ // test if H is a NULL pointer --> false, true if not
-        for(int i= 0; i < dim; i++){
-            free(H->matrix[i]);
-        }
-        free(H->matrix);
-        free(H);
+StateComplexe* convert_state_to_complex(State* s) {
+    StateComplexe* sc = malloc(sizeof(StateComplexe));
+    sc->size = s->size;
+    sc->vector = malloc(sc->size * sizeof(cplx));
+    for (int i = 0; i < sc->size; i++)
+        sc->vector[i] = (cplx)(s->occupancy[i]) + 0.0 * I;
+    return sc;
+}
+
+void free_state_complexe(StateComplexe* sc) {
+    if (sc) {
+        free(sc->vector);
+        free(sc);
     }
 }
 
-void free_combination_list(CombinationList *list) { // to free combination list
-    if (list) {
-        for (int i = 0; i < list->max_count; i++) {
-            free(list->combinations[i].indices);
-        }
-        free(list->combinations);
-        free(list);
+void print_state_list_complexe(StateListComplexe* list) {
+    if (!list) {
+        printf("Liste vide (NULL).\n");
+        return;
     }
-}
-
-void free_state_list(StateList *list) { // To free state list
-    if (list) {
-        for (int i = 0; i < list->count; i++) {
-            free(list->states[i].occupancy);
-        }
-        free(list->states);
-        free(list);
-    }
-}
-
-
-// 2) basic :
-// definition of basic function
-Matrix* initialize_matrix_with_zeros(int dim){ // does what it is said in the title
-
-
-    Matrix* H = allocate_memory_matrix(dim);
-    for(int i = 0; i<dim; i++){
-        for(int j = 0; j<dim; j++){
-            H->matrix[i][j] = 0;
-        }
-    }
-    return H;
-}
-
-bool state_equal(State* state1, State* state2) {
-    if (!state1 || !state2)
-        return false;
-
-    if (state1->size != state2->size)
-        return false;
-
-    for(int i = 0; i < state1->size; i++) {
-        if (state1->occupancy[i] != state2->occupancy[i]) {
-            return false;
-        }
-    }
-    return true;
-}
-
-
-State* abs_state(State* state_not_in_absolute_value){ // transform each value of state in an absolute value
-    State* state_in_absolute_value = malloc(sizeof(State));
-    state_in_absolute_value->size = state_not_in_absolute_value->size;
-    state_in_absolute_value->occupancy = malloc(state_in_absolute_value->size * sizeof(int)); // need to allocate memory to occupancy // state_not_in_absolute_value->size * ?
-    for(int i = 0; i < (state_not_in_absolute_value->size)-1; i++){                                                                                                                             //
-        state_in_absolute_value->occupancy[i] = abs(state_not_in_absolute_value->occupancy[i]);
-    }
-    return state_in_absolute_value;
-}
-
-
-bool any(State* state){
-    //state_in_absolute_value->occupancy = malloc(state_not_in_absolute_value->size * sizeof(int));
-    if (!state || !state->occupancy) return false;
-    for (int i = 0; i < (state->size)-1; i++) {                                                                                                                 //
-        if (state->occupancy[i] != 0) return true; //pour pas lire un octet en trop
-    }
-    return false;
-}
-
-State* make_a_vector_of_zero_state_lengthed(int dim){
-    State* state_nul = malloc(sizeof(State));
-    state_nul->size = dim;
-    state_nul->occupancy = calloc(dim, sizeof(long long));
-    for(int i = 0; i<dim; i++){
-        state_nul->occupancy[i] = 0;
-    }
-    return state_nul;
-}
-
-int min(int a, int b) { return (a < b) ? a : b; }
-int max(int a, int b) { return (a > b) ? a : b; }
-
-// 3) for the denombrement in get_hubard_state :
-long long binomial_coefficient(int n, int k) { // Calculation of the binomial coefficient C(n,k)
-    // Version corrigée avec gestion d'erreurs
-    // Vérifications d'entrée
-    if (n < 0 || k < 0) return -1;  // Erreur : valeur négative
-    if (k > n) return 0;            // Cas valide : C(n,k) = 0 si k > n
-    if (k == 0 || k == n) return 1; // Cas de base
-
-    // Optimisation : utiliser la propriété C(n,k) = C(n,n-k)
-    if (k > n - k) k = n - k;
-
-    long long result = 1;
-
-    // Calcul sécurisé pour éviter les débordements
-    for (int i = 0; i < k; i++) {
-        // Vérifier le débordement potentiel
-
-        result = result * (n - i) / (i + 1);
-    }
-
-    return result;
-}
-
-CombinationList* init_combination_list(int k, int n) { // Initialization of the combinations list
-    CombinationList *list = malloc(sizeof(CombinationList));
-    list->count = 0;
-    list->max_count = binomial_coefficient(n, k);
-    long long abs_count = abs(list->max_count * sizeof(Combination));
-    list->combinations = malloc(abs_count);
-
-    // Initialiser chaque combinaison
-    for (int i = 0; i < list->max_count; i++) {
-        list->combinations[i].indices = malloc(list->max_count * sizeof(int));
-        list->combinations[i].size = k;
-    }
-
-    return list;
-}
-
-CombinationList* combinations_iterative(int k, int n) { // Itérative version  (plus efficace pour certains cas)
-    if (k > n || k < 0) return NULL;
-    //printf("k & n : %d &  %d", k, n);
-    CombinationList *list = init_combination_list(k, n);
-    int *combination = malloc(k * sizeof(int));
-    //printf(list);
-    // Initialiser la première combinaison [0, 1, 2, ..., k-1]
-    for (int i = 0; i < k; i++) {
-        combination[i] = i;
-        //printf(combination[i]);
-    }
-
-    do {
-        // Copier la combinaison actuelle dans la liste
-        for (int i = 0; i < k; i++) {
-            list->combinations[list->count].indices[i] = combination[i];
-        }
-        list->count++;
-
-        // Générer la combinaison suivante
-        int i = k - 1;
-        while (i >= 0 && combination[i] == n - k + i) {
-            i--;
-        }
-
-        if (i < 0) break; // Plus de combinaisons
-
-        combination[i]++;
-        for (int j = i + 1; j < k; j++) {
-            combination[j] = combination[j-1] + 1;
-        }
-
-    } while (true);
-    free(combination);
-    return list;
-}
-
-void print_combinations(CombinationList *list) { // To print combinations
-    printf("Nombre de combinaisons: %lld\n", list->count);
-    for (int i = 0; i < list->count; i++) {
-        printf("Combinaison %d: [", i);
-        for (int j = 0; j < list->combinations[i].size; j++) {
-            printf("%lld", list->combinations[i].indices[j]);
-            if (j < list->combinations[i].size - 1) printf(", ");
+    for (long long i = 0; i < list->count; i++) {
+        StateComplexe state = list->complexe_state[i];
+        printf("État #%lld : [", i);
+        for (int j = 0; j < state.size; j++) {
+            double complex z = state.vector[j];
+            printf(" %.3f%+.3fi ", creal(z), cimag(z));
+            if (j < state.size - 1) printf("|");
         }
         printf("]\n");
     }
 }
 
-
-// Other specific function :
-int number_operator(State* state, int i, char spin) { // number_operator
-    return (spin == 'u') ? (int)(state->occupancy[2 * i]) : (int)(state->occupancy[2 * i + 1]); //(int)
+void print_state_complexe(StateComplexe* state) {
+    if (!state || !state->vector) {
+        printf("État complexe vide ou NULL.\n");
+        return;
+    }
+    printf("StateComplexe (taille = %d):\n[", state->size);
+    for (int i = 0; i < state->size; i++) {
+        double complex z = state->vector[i];
+        printf(" %.3f%+.3fi ", creal(z), cimag(z));
+        if (i < state->size - 1) printf("|");
+    }
+    printf("]\n");
 }
 
-State* annihilation(State* state, int i, char spin){
-    /**
-    * @Annihilation operator acting on spin of site i (0-indexed) of state
+double* transition_probability_over_time(StateComplexe* left_state, StateListComplexe* list) {
+    // Alloue le tableau résultat
+    double* probabilities = malloc(list->count * sizeof(double));
+    if (!probabilities) return NULL;
 
-    Parameters:
-    state: array, state of the system
-    i: int, site wanted
-    spin: char, "u" or "d"
-
-    Returns:
-    * @return ret_state: array, new state after annihilation operator is applied
-    */
-
-    //Calculate the index of the spin in the state array
-    int idx = 0;
-    if(spin == 'u') idx = 2 * i;
-    else idx = 2*i + 1;
-
-
-    //Calculate the Fermi sign factor
-    long long summed_state = 0;
-
-    for(long long i = 0; i < idx; i ++) summed_state += state->occupancy[i];
-
-    long long S_i = abs(summed_state);
-    int sign_factor = (S_i % 2 == 0) ? 1 : -1;
-
-    State *new_state = malloc(sizeof(State));
-    new_state->size = state->size;
-    int dim = state->size;
-    new_state->occupancy = malloc(state->size * sizeof(long long));
-    if(!any(state)){
-        printf("any");
-        return make_a_vector_of_zero_state_lengthed(dim);
-    }else if(abs(state->occupancy[idx]) == 0){
-        printf("dim : %d", dim);
-        print_state(make_a_vector_of_zero_state_lengthed(dim));
-        return make_a_vector_of_zero_state_lengthed(dim);
-    }else{
-        printf("else");
-        printf("test_1");
-
-        printf("test_2");
-        for (int j = 0; j < state->size; j++) {
-            new_state->occupancy[j] = state->occupancy[j];
+    for (long long t_idx = 0; t_idx < list->count; t_idx++) {
+        cplx inner_product = 0.0 + 0.0 * I;
+        StateComplexe* right_state = &list->complexe_state[t_idx];
+        if (right_state->size != left_state->size) {
+            fprintf(stderr, "Erreur : tailles d'états incompatibles à t = %lld\n", t_idx);
+            probabilities[t_idx] = 0.0;
+            continue;
         }
-        printf("test_3");
-        new_state->occupancy[idx-1] = 0;                                                                          //
-
-        // applique le signe de Fermi
-        for (int j = 0; j < state->size; j++) {
-            new_state->occupancy[j] *= sign_factor;
+        for (int i = 0; i < left_state->size; i++) {
+            inner_product += conj(left_state->vector[i]) * right_state->vector[i];
         }
-
-        //print_state(ret_state);
-        //ret_state->occupancy[idx]= 0;
-
-        return new_state;
+        probabilities[t_idx] = pow(cabs(inner_product), 2);
     }
+    return probabilities;
 }
 
-State* creation(State* state, int i, char spin){
-    /**
-    * @Annihilation operator acting on spin of site i (0-indexed) of state
-
-    Parameters:
-    state: array, state of the system
-    i: int, site wanted
-    spin: char, "u" or "d"
-
-    Returns:
-    * @return ret_state: array, new state after annihilation operator is applied
-    */
-
-    //Calculate the index of the spin in the state array
-    int idx = 0;
-    if(spin == 'u') idx = 2 * i;
-    else idx = 2*i + 1;
-
-
-    //Calculate the Fermi sign factor
-    long long summed_state = 0;
-
-    for(long long i = 0; i < idx-1; i ++) summed_state += state->occupancy[i];                                                          //
-
-    long long S_i = abs(summed_state);
-    int sign_factor = (S_i % 2 == 0) ? 1 : -1;
-
-    State *new_state = malloc(sizeof(State));
-    new_state->size = state->size;
-    int dim = state->size;
-    new_state->occupancy = malloc(state->size * sizeof(long long));
-    if(!any(state)){
-        printf("any");
-        return make_a_vector_of_zero_state_lengthed(dim);
-    }else if(abs(state->occupancy[idx-1]) == 1){                                                                                 //
-        printf("dim : %d", dim);
-        print_state(make_a_vector_of_zero_state_lengthed(dim));
-        return make_a_vector_of_zero_state_lengthed(dim);
-    }else{
-        for (int j = 0; j < (state->size)-1; j++) {                                                                                 //
-            new_state->occupancy[j] = state->occupancy[j];
-        }
-        new_state->occupancy[idx] = 1;
-
-        // applique le signe de Fermi
-        for (int j = 0; j < state->size; j++) {
-            new_state->occupancy[j] *= sign_factor;
-        }
-        return new_state;
+void print_double_array(const double* arr, long long size) {
+    printf("[");
+    for (long long i = 0; i < size; i++) {
+        printf("%.6f", arr[i]);
+        if (i < size - 1) printf(", ");
     }
+    printf("]\n");
 }
 
-int hopping_term_sign_factor(State* state_i, int i, int k, char spin){
-    int idx_i = 0;
-    int idx_k = 0;
-    if(spin == 'u') idx_i = (2 * i);
-    else idx_i = 2*i + 1;
-    if(spin == 'u') idx_k = (2 * k);
-    else idx_k = 2*k + 1;
-
-    int min_idx = min(idx_i, idx_k);
-    int max_idx = max(idx_i, idx_k);
-
-    int S = 0;
-    for(int i = min_idx+1; i < max_idx; i++) S += state_i->occupancy[i];
-
-    return (-1)^(S);
-}
-
-// void print_pointeur(CombinationList* listcombi){
-//     for(int i = 0; i<listcombi->max_count; i++){
-//         printf(listcombi->combinations);
-//     }
-// }
-
-// Main function :
-StateList* get_hubbard_states(int N) { // get_hubbard_states(N, dim
-    int dim = 2 * N;
-    CombinationList *combs = combinations_iterative(N, dim); // dim = nombre de particule & N = nombre de site
-    if (!combs) {
-        free_combination_list(combs);
-        return NULL;
-    }
-    StateList *state_list = malloc(sizeof(StateList));
-    state_list->count = combs->count;
-    state_list->states = malloc(combs->count * sizeof(State));
-
-    for (long long i = 0; i < combs->count; i++) {
-        // Initialiser l'état avec des zéros
-        state_list->states[i].size = dim;
-        state_list->states[i].occupancy = calloc(dim, sizeof(long long));
-        // Mettre 1 aux positions occupées
-        for (int j = 0; j < combs->combinations[i].size; j++) {
-            long long index = combs->combinations[i].indices[j];
-            state_list->states[i].occupancy[index] = 1;
-        }
+void save_top_hubbard_states_to_csv(
+        StateListComplexe* psi_t,
+        StateList* state_list_init,
+        int top_n,
+        const char* filename)
+{
+    FILE* f = fopen(filename, "w");
+    if (!f) {
+        fprintf(stderr, "Impossible d'ouvrir %s\n", filename);
+        return;
     }
 
-    if (!state_list || !state_list->states) {
-        free(state_list); // au cas où state_list est non NULL
-        free_combination_list(combs);
-        return NULL;
-    }
+    // Header
+    fprintf(f, "t_idx,idx,proba,real,imag,occupation\n");
 
-    free_combination_list(combs);
-    return state_list;
-}
+    for (int t = 0; t < psi_t->count; t++) {
+        // Calculer la norme totale à ce t pour normalisation éventuelle
+        double norm = 0.0;
+        for (int j = 0; j < psi_t->complexe_state[t].size; j++)
+            norm += pow(cabs(psi_t->complexe_state[t].vector[j]), 2);
 
+        for (int k = 0; k < top_n; k++) {
+            // Cherche le top-n en amplitude (naïf, à améliorer si besoin)
+            int idx = k;
+            double amp = pow(cabs(psi_t->complexe_state[t].vector[idx]), 2);
+            double re  = creal(psi_t->complexe_state[t].vector[idx]);
+            double im  = cimag(psi_t->complexe_state[t].vector[idx]);
 
-Matrix* hubbard_hamiltonian_matrix(int N, Matrix* t_matrix, double U, int dim, int V){
-    StateList* statelist = get_hubbard_states(N); // Get all possible Hubbard states
-    dim = statelist->count;  // Dimension of the Hilbert space
-    if (!statelist) {
-        printf("Erreur: impossible de générer les états\n");
-        free_state_list(statelist);
-        return NULL;
-    }
-    int hilbert_dim = (int)(statelist->count);  // Utilisez une nouvelle variable
-
-    Matrix* H = initialize_matrix_with_zeros(hilbert_dim);
-    // Loop over all states (rows)
-    for(int i = 0; i < hilbert_dim; i++){
-        printf("i=%d ", i);
-        State* state_i = &statelist->states[i];
-        // Loop over all states (columns)
-        for(int j = 0; j < hilbert_dim; j++){
-            printf("j=%d ", j);
-            State* state_j = &statelist->states[j];
-            // Diagonal elements: Coulomb interaction term
-            if(i == j){
-                for (int site =0; site < N; site ++){
-                    // Check if both up and down spins are present at the site
-                    int n_up = number_operator(state_i, site, 'u');
-                    int n_down = number_operator(state_i, site, 'd');
-                    H->matrix[i][j] += U * n_up * n_down;
-                }
-
-
-                if(V != 0){
-                    for (int site1 = 0; site1 < N; site1++){
-                        int site2 = site1 + 1;
-                        int n1 = number_operator(state_i, site1, 'u') + number_operator(state_i, site1, 'd');
-                        int n2 = number_operator(state_i, site2, 'u') + number_operator(state_i, site2, 'd');
-                        H->matrix[i][i] += V * n1 * n2;
-                    }
-                }
-
+            // État d'occupation
+            fprintf(f, "%d,%d,%.12f,%.12f,%.12f,[", t, idx, amp, re, im);
+            for (int s = 0; s < state_list_init->states[idx].size; s++) {
+                fprintf(f, "%lld", state_list_init->states[idx].occupancy[s]);
+                if (s < state_list_init->states[idx].size - 1)
+                    fprintf(f, " ");
             }
-
-                // Off-diagonal: Hopping terms
-            else{
-                printf("hopping");
-                // Determine if statelist i and j differ by a single hopping event
-                for(int site1 = 0; site1 < N; site1++){
-                    // Hubbard nearest-neighbor hopping
-                    int site2_list[2] = {site1-1, site1+1};
-                    for(int s = 0; s < 2; s++){
-                        if(0 <= site2_list[s] && site2_list[s] < N){// --> ?
-                            char spins[2] = {'u', 'd'};
-                            for (int l = 0; l < 2; l++) {           // bon !!
-                                char spin = spins[l];
-
-                                State* temp = annihilation(state_i, site1, spin);
-                                // // Check if there is a spin to move at site1 with spin
-                                if(any(temp)){
-                                    int site2 = site2_list[s];
-
-                                    State* final = creation(temp, site2, spin); // 0 if already occupie
-
-                                    printf("ETAPE FINALE AVAANT LA BOUCLE FOR:");
-                                    print_state(final);
-                                    if(state_equal(abs_state(final), state_j)){
-                                        printf("sdfg !");
-                                        int sign = hopping_term_sign_factor(state_i, site1, site2, spin); // --> a voir antisymétries des fermions
-                                        printf("hopping !");
-                                        H->matrix[i][j] -= t_matrix->matrix[site1][site2] * sign; //problème ???
-                                        printf("Hello___world !");
-                                    }
-                                    printf("toujours dans la boucle");
-                                }
-                                printf("on est sortie !!!!!!!!!!!");
-                            }
-                            printf("sortie de la boucle for");
-                        }
-                        printf("sortie de la première boucle if");
-                    }
-                    printf("sortie de la 2eme boucle for");
-                }                                                   // pas bon
-                printf("sortie de la troisième boucle for");
-            }
-            printf("j = %d", j);
+            fprintf(f, "]\n");
         }
     }
-    printf("test_111");
-    //free_state_list(statelist);
-    return H;
+    fclose(f);
 }
 
-//int init_binary_state = {0,1,1,0,1,0,1,0};
-int top_n = 1;
-int nbr_pts = 10;
+void top_hubbard_states_interface(int N, double U, double T_final, int nbr_pts, int top_n, State* init_state, const char* filename) {
+    // 1. Génére la base
+    StateList* state_list = get_hubbard_states(N);
 
-void top_hubbard_states_calculation(int temps, int U, Matrix* t_matrix, State* init_binary_state, int nbr_pts){
-    U = U * eV;  // Convert U from eV to Joules
-    // Convert t from eV to Joules
-    printf("avantoutchose");
-    int N = (init_binary_state->size) / 2;
-    printf("foie");
-    t_matrix->dim = N;
+    // 2. Hamiltonien
+    Matrix *tmat = create_tridiagonal_matrix(N);
+    Matrix *H    = hubbard_hamiltonian_matrix(N, tmat, U);
 
-    t_matrix->matrix = malloc(t_matrix->dim * sizeof(t_matrix));
-    for(int i = 0; i < t_matrix->dim; i++) {
-        t_matrix->matrix[i] = malloc(t_matrix->dim * sizeof(double));
-        if (t_matrix->matrix[i] == NULL) {
-            printf("ERREUR: Allocation échouée pour ligne %d\n", i);
-            // Libérer ce qui a été alloué
-            for(int k = 0; k < i; k++) {
-                free(t_matrix->matrix[k]);
-            }
-            free(t_matrix->matrix);
-            return;
-        }
-    }
-    printf("parcequ'en fait");
-    for(int i = 0; i < t_matrix->dim; i++) {
-        for(int j = 0; j < t_matrix->dim; j++) {
-            t_matrix->matrix[i][j] *= eV;
-        }
-    }
+    // 3. État initial : choisis-le ou fais-le passer en argument si besoin
+    //State* state_init = &state_list->states[1]; // ou let user choose
 
-    // // Number of sites
-    N = (init_binary_state->size)/2;
-    int dim = init_binary_state->size;
-    StateList* states = malloc(sizeof(StateList));
-    states->count = dim;
-    states->states = malloc(states->count * sizeof(State));
-    states = get_hubbard_states(N);
-    //states->count =
-    dim = states->count;
-    int V = 0;
+    // 4. Évolution temporelle
+    double* T_array = malloc(nbr_pts * sizeof(double));
+    generate_time_array(T_final, nbr_pts, 1.0, T_array);
 
-    Matrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V);
-    printf("Bientot");
+    StateListComplexe* psi_t = time_evol_state(H, T_array, nbr_pts, convert_state_to_complex(init_state));
 
-    // if(H){
-    //     free_memory_matrix(H, dim); // free memory
-    // }
-    free_state_list(states);
-    // int V = 0;
-    // Matrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V);
+    // 5. Appelle l’export (ex : .csv ou .txt, ou écris un format numpy lisible, sinon tu ajoutes l’export .npz)
+    save_top_hubbard_states_to_csv(psi_t, state_list, top_n, filename);
+
+    // 6. Free
+    free(T_array);
+    free_memory_matrix(tmat);
+    free_memory_matrix(H);
+    free_state_list(state_list);
+    // etc.
 }
 
-int main(){
-    int V = 0;
-    int N = 2;
-    int temps = 4;
-    double U = 2;
-    int dim = 2 * N;
+int main(void) {
+    int N = 4;
+    double U = 2.0;
+    int nbr_pts = 100;
+    double T_final = 1e-20;
 
-    StateList* statelist = malloc(sizeof(StateList));
-    statelist = get_hubbard_states(N); // segmentation fault
-    //print_state_list(statelist);
-    printf("first");
-    Matrix* t_matrix = create_tridiagonal_matrix(N);
-    printf("second");
+    StateList* state_list = get_hubbard_states(N);
+    int dim = state_list->count;
 
-    State state = statelist->states[0];
+    // --- Recherche de l'indice correspondant à [down up] ---
+    int init_idx = 40;
 
-    //print_state(&state);
+    StateComplexe* v0 = basis_vector(dim, init_idx);
 
-    //State* state_nul;
-    //state_nul = make_a_vector_of_zero_state_lengthed(3);
-    //print_state(state_nul);
-    //free_state_list(statelist);
+    Matrix* tmat = create_tridiagonal_matrix(N);
+    Matrix* H = hubbard_hamiltonian_matrix(N, tmat, U);
 
-    //State* state_anni;
-    //state_anni = creation(&state,  0,  'u');
-    // printf("after");
-    // Matrix* H = hubbard_hamiltonian_matrix(N, t_matrix, U, dim, V); // in process
-    // printf("CEESTGAGNEEEEEE");
-    // print_matrix(H);
+    double* T_array = malloc(nbr_pts * sizeof(double));
+    generate_time_array(T_final, nbr_pts, 1.0, T_array);
 
-    State* init_binary_state = malloc(sizeof(State));
-    init_binary_state->size = dim;
-    init_binary_state = malloc(init_binary_state->size * sizeof(State));
-    
-    top_hubbard_states_calculation(temps, U, t_matrix, init_binary_state, nbr_pts);
+    StateListComplexe* psi_t = time_evol_state(H, T_array, nbr_pts, v0);
 
-    
+    double* proba = transition_probability_over_time(v0, psi_t);
 
-    //print_state(state_anni);
+    printf("[");
+    for (int i = 0; i < nbr_pts; i++) {
+        printf("%f", proba[i]);
+        if (i < nbr_pts - 1) printf(", ");
+    }
+    printf("]\n");
 
-    //free_state_list(statelist);
+
+    int top_n = 4; // Ou ce que tu veux
+    save_top_hubbard_states_to_csv(psi_t, state_list, top_n, "top_hubbard_states.csv");
+
+    // --- Free mémoire ---
+    free_state_list(state_list);
+    free_state_complexe(v0);
+    free(T_array);
+    free_memory_matrix(tmat);
+    free_memory_matrix(H);
+    for (int i = 0; i < psi_t->count; i++)
+        free(psi_t->complexe_state[i].vector);
+    free(psi_t->complexe_state);
+    free(psi_t);
+    free(proba);
+
     return 0;
 }

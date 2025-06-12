@@ -35,17 +35,12 @@ class StateList(ctypes.Structure):
         ("states", ctypes.POINTER(State))
     ]
 
-class HamiltonianMatrix(ctypes.Structure):
+class Matrix(ctypes.Structure):
     _fields_ = [
         ("dim", ctypes.c_longlong),
         ("matrix", ctypes.POINTER(ctypes.POINTER(ctypes.c_double)))
     ]
 
-class TMatrix(ctypes.Structure):
-    _fields_ = [
-        ("size", ctypes.c_int),
-        ("t_matrix", ctypes.POINTER(ctypes.POINTER(ctypes.c_double)))
-    ]
 
 spins = ['u', 'd']  # spins up and down
 eV = 1.602176634e-19  # eV to Joules conversion factor
@@ -61,13 +56,11 @@ lib_utils_c.get_hubbard_states.restype = ctypes.POINTER(StateList)
 # Configuration des types pour hubbard_hamiltonian_matrix
 lib_utils_c.hubbard_hamiltonian_matrix.argtypes = [
     ctypes.c_int,                    # N
-    ctypes.POINTER(TMatrix),         # t_matrix
+    ctypes.POINTER(Matrix),         # t_matrix
     ctypes.c_double,                 # U
-    ctypes.c_int,                    # dim
-    ctypes.c_int                     # V
-    #ctypes.POINTER(StateList)       # statelist
+    ctypes.c_int                    # dim
 ]
-lib_utils_c.hubbard_hamiltonian_matrix.restype = ctypes.POINTER(HamiltonianMatrix)
+lib_utils_c.hubbard_hamiltonian_matrix.restype = ctypes.POINTER(Matrix)
 
 # Fonctions utiles pour la conversion :
 # Fonctions utilitaires pour la conversion
@@ -76,7 +69,7 @@ def numpy_to_c_matrix(np_matrix):
     rows, cols = np_matrix.shape
     
     # Créer la structure TMatrix
-    t_matrix = TMatrix()
+    t_matrix = Matrix()
     t_matrix.size = rows
     
     # Allouer et remplir la matrice
@@ -111,6 +104,27 @@ def c_states_to_numpy(statelist_c):
         states.append(occupancy)
     
     return np.array(states)
+
+def make_matrix(matrix_py):
+    dim = len(matrix_py)
+    RowArrayType = ctypes.c_double * dim  # type pour une ligne
+
+    # Créer un tableau de lignes
+    rows = []
+    for row in matrix_py:
+        row_array = RowArrayType(*row)
+        rows.append(row_array)
+
+    # Créer le tableau de pointeurs vers les lignes
+    MatrixType = ctypes.POINTER(ctypes.c_double) * dim
+    matrix_ptrs = MatrixType(*(ctypes.cast(row, ctypes.POINTER(ctypes.c_double)) for row in rows))
+
+    # Créer l'objet Matrix final
+    matrix_c = Matrix()
+    matrix_c.matrix = matrix_ptrs
+    matrix_c.dim = dim
+
+    return matrix_c, rows  # Important : garder `rows` en vie
 
 
 # Functions
@@ -215,86 +229,6 @@ def create_bit_strings(N):
     ret_arr = np.array([list(arr) for arr in ret_arr])
 
     return ret_arr
-
-# --> en c
-# def creation(state, i, spin):
-
-#     """
-#     Creation operator acting on spin of site i (0-indexed) of state
-
-#     Parameters:
-#     state: array, state of the system
-#     i: int, site wanted
-#     spin: char, "u" or "d"
-
-#     Returns:
-#     ret_state: array, new state after creation operator is applied
-#     """
-
-#     # Calculate the index of the spin in the state array
-#     idx = 2 * i if spin == 'u' else 2*i + 1
-
-#     # Calculate the Fermi sign factor
-#     S_i = np.abs(np.sum(state[0:idx]))
-#     sign_factor = (-1) ** S_i
-
-#     if not state.any():
-#         return np.zeros(len(state))
-#     elif np.abs(state[idx]) == 1:
-#         return np.zeros(len(state))
-#     else:
-#         ret_state = state.copy()
-#         ret_state[idx] = 1
-#         return sign_factor*ret_state
-    
-# --> en c
-# def annihilation(state, i, spin):
-
-#     """
-#     Annihilation operator acting on spin of site i (0-indexed) of state
-
-#     Parameters:
-#     state: array, state of the system
-#     i: int, site wanted
-#     spin: char, "u" or "d"
-
-#     Returns:
-#     ret_state: array, new state after annihilation operator is applied
-#     """
-
-#     # Calculate the index of the spin in the state array
-#     idx = 2 * i if spin == 'u' else 2*i + 1
-
-#     # Calculate the Fermi sign factor
-#     S_i = np.abs(np.sum(state[0:idx]))
-#     sign_factor = (-1) ** S_i
-#     if not state.any():
-#         return np.zeros(len(state))
-#     elif state[idx] == 0:
-#         return np.zeros(len(state))
-#     else:
-#         ret_state = state.copy()
-#         ret_state[idx] = 0
-#         return sign_factor*ret_state
-    
-# --> en c
-# def number_operator(state, i, spin):
-
-#     """
-#     Number operator acting on spin of site i (0-indexed) of state. Returns 0 or 1 whether the site i have the spin wanted or not
-
-#     Parameters:
-#     state: array, state of the system
-#     i: int, site wanted
-#     spin: char, "u" or "d"
-
-#     Returns:
-#     int, 0 or 1 depending on whether the site i has the spin wanted
-#     """
-
-#     idx = 2 * i if spin == 'u' else 2 * i + 1
-
-#     return int(state[idx])
     
 
 def time_evol_state(H, T, u, hbar=1):
@@ -392,127 +326,6 @@ def prob_over_time(H,T,u,v,transpose = True):
     return ret_component
 
 
-# def hopping_term_sign_factor(state, i, k, spin):
-
-#     """
-#     This function returns the sign factor for the hopping term in the Hamiltonian.
-
-#     Parameters:
-#     state: array, state of the system
-#     i: int, site index of the initial state
-#     k: int, site index of the final state
-#     spin: char, "u" or "d"
-
-#     Returns:
-#     int, sign factor for the hopping term
-#     """
-
-#     # Hopping is equivalent to annihilation at i and creation at k
-#     # The sign factor is (-1)^(S_i + S_k), where S_i and S_k are the number of spins at sites i and k respectively
-
-#     idx_i = 2 * i if spin == 'u' else 2*i + 1
-#     idx_k = 2 * k if spin == 'u' else 2*k + 1
-
-#     min_idx = min(idx_i, idx_k)
-#     max_idx = max(idx_i, idx_k)
-
-#     S = np.sum(state[min_idx+1:max_idx])
-
-
-#     return (-1) ** (S)
-
-# --> en c
-# def get_hubbard_states(N):
-
-#     """
-#     Generates all possible Hubbard states for a system of N sites.
-#     Each state is represented as a binary array of length 2N, where the first N bits represent spin-up electrons and the last N bits represent spin-down electrons.
-
-#     Parameters:
-#     N: int, number of sites
-
-#     Returns:
-#     array, array of all possible Hubbard states
-#     """
-
-#     dim = 2 * N  # 2 états (↑ et ↓) par site
-#     all_states = []
-
-#     # On choisit N positions parmi 2N pour y mettre les électrons (1s)
-#     for occ_indices in itertools.combinations(range(dim), N):
-#         state = np.zeros(dim, dtype=int)
-#         state[list(occ_indices)] = 1
-#         all_states.append(state)
-
-#     return np.array(all_states)
-
-# --> en c
-# def hubbard_hamiltonian_matrix(N, t, U, V = 0,states = None):
-
-#     """
-#     Returns the Hubbard Hamiltonian matrix for a system of N sites.
-    
-#     Parameters:
-#     N: int, number of sites
-#     t: array, hopping integral matrix (symmetric NxN matrix), t[i][j] represents the hopping amplitude between sites i and j
-#     U: float, on-site interaction strength
-#     V: float, nearest-neighbor interaction strength (default is 0)
-#     states: array, optional, list of states to consider (if None, all possible Hubbard states are generated)
-
-#     Returns:
-#     array, Hubbard Hamiltonian matrix in the basis of all possible states
-#     """
-    
-#     if states is None:
-#         states = get_hubbard_states(N)  # Get all possible Hubbard states
-#         dim = len(states)  # Dimension of the Hilbert space
-#     else:
-#         dim = len(states)
-#     H = np.zeros((dim, dim))
-    
-#     # Loop over all states (rows)
-#     for i in range(dim):
-#         state_i = states[i]
-        
-#         # Loop over all states (columns)
-#         for j in range(dim):
-#             state_j = states[j]
-            
-#             # Diagonal elements: Coulomb interaction term 
-#             if i == j:
-#                 for site in range(N):
-#                     # Check if both up and down spins are present at the site
-#                     n_up = number_operator(state_i, site, 'u')
-#                     n_down = number_operator(state_i, site, 'd')
-#                     H[i, j] += U * n_up * n_down
-                
-#                 if V != 0:
-#                     for site1 in range(N-1):
-#                         site2 = site1 + 1
-#                         n1 = number_operator(state_i, site1, 'u') + number_operator(state_i, site1, 'd')
-#                         n2 = number_operator(state_i, site2, 'u') + number_operator(state_i, site2, 'd')
-#                         H[i,i] += V * n1 * n2
-                
-#             # Off-diagonal: Hopping terms
-#             else:
-#                 # Determine if states i and j differ by a single hopping event
-#                 for site1 in range(N):
-#                     # Hubbard nearest-neighbor hopping
-#                     for site2 in (site1-1, site1+1):
-#                         if 0 <= site2 < N:
-#                             for spin in ['u','d']:
-#                                 temp = annihilation(state_i, site1, spin)
-#                                 # Check if there is a spin to move at site1 with spin
-#                                 if np.any(temp):
-#                                     final = creation(temp, site2, spin) # 0 if already occupied
-                                   
-#                                     if np.array_equal(np.abs(final), state_j):
-#                                         sign = hopping_term_sign_factor(state_i, site1, site2, spin)
-#                                         H[i, j] -= t[site1,site2] * sign
-    
-#     return H
-
-
 def get_label(u):
 
     """
@@ -532,7 +345,6 @@ def get_label(u):
                     '↑↓|' if u[2*i] and u[2*i+1]  else 
                     '↑ |' if u[2*i] and not u[2*i+1] else 
                     ' ↓|' for i in range(len(u) // 2)])[:-1]
-
 
 def get_sampling_timestep(H_py):
 
@@ -573,7 +385,7 @@ def get_hopping_simple_matrix(N, t):
         t_matrix_py[i+1, i] = t
     return t_matrix_py
 
-def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], top_n=4, figsize=(12,6), nbr_pts=1000):
+def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], top_n=4, figsize=(12,6), nbr_pts=1000, N = 2):
 
     """
     Plot the top_n Hubbard states with the highest transition probabilities over time.
@@ -664,25 +476,47 @@ def top_hubbard_states(T, U, t_matrix_py, init_binary_state=[0,1,1,0,1,0,1,0], t
     # print("Bientot")
 
     
-    V = 0
+    # Ta liste Python
+    init_binary_state = [0, 1, 1, 0, 1, 0, 1, 0]
+    size = len(init_binary_state)
+
+    # Convertir en tableau C de int
+    OccupancyArrayType = ctypes.c_int * size
+    occupancy_array = OccupancyArrayType(*init_binary_state)
+
+
+    #MatrixArrayType = ctypes.c_double * dim
+    matrix_py = 0.0394e-3*get_hopping_simple_matrix(4, 1)
+    scaled_matrix_py = [[0.0394e-3 * val for val in row] for row in matrix_py]
+    t_matrix_c, _row_refs = make_matrix(scaled_matrix_py)
+
     N = 4
     dim = 2 * N
-    t_matrix_c = numpy_to_c_matrix(t_matrix_py) # probleme ?
-    init_binary_state_c = python_list_to_c_state(init_binary_state)
+    t_matrix_c # probleme ?
+    init_binary_state_c = State(
+        size=size,
+        occupancy=occupancy_array
+    )
     top_n=4
     nbr_pts =1000
 
     lib_utils_c.top_hubbard_states_calculation(
-        ctypes.c_double(T), 
-        ctypes.c_double(U), 
-        ctypes.pointer(t_matrix_c),
-        ctypes.byref(init_binary_state_c), 
-        ctypes.c_int(top_n), 
-        ctypes.c_int(nbr_pts)
-        )
+        ctypes.c_double(T), # Any
+        ctypes.c_double(U), # Any
+        ctypes.pointer(t_matrix_c), # Matrix*
+        ctypes.pointer(init_binary_state_c), # State*
+        ctypes.c_int(top_n), # Literal[4] ?
+        ctypes.c_int(nbr_pts) # Literal[1000] ?
+    )
     
+    H_c = lib_utils_c.hubbard_hamiltonian_matrix( 
+        ctypes.c_int(N),  
+        ctypes.pointer(t_matrix_c),  
+        ctypes.c_double(U),  
+        ctypes.c_int(dim)
+    )
     H_py = c_matrix_to_numpy(H_c)
-    print(H_py)
+    # print(H_py)
 
 
     dt = get_sampling_timestep(H_py)
@@ -776,8 +610,9 @@ init_binary_state=[0,1,1,0,1,0,1,0]
 top_n=4
 figsize=(12,6)
 nbr_pts=1000
+N = 2
 
-T, Tmp, _ = top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figsize, nbr_pts)
+T, Tmp, _ = top_hubbard_states(T, U, t_matrix_py, init_binary_state, top_n, figsize, nbr_pts, N)
 
 # lib_utils_c.simple.argtypes = []
 # lib_utils_c.simple.restype = ctypes.c_int
